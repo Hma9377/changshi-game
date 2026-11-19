@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>像素坦克争霸 v3</title>
 <style>
 /* ================= 全局：白底黑墙极简像素风 ================= */
@@ -96,6 +97,12 @@ h2 { font-size: 25px; letter-spacing: 4px; margin-bottom: 16px; }
 .krow{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:5px 0;font-size:13px}
 .kbtn{min-width:112px;margin:0}
 .kbtn.lis{background:#111;color:#fff}
+/* 触屏长按按键栏（人机模式，排在画布下方，非遮挡式） */
+#touchBar{display:none;justify-content:center;align-items:stretch;gap:12px;flex-wrap:wrap;margin:4px auto 0;max-width:98vw;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.tg{display:flex;gap:8px}
+.tb{font-family:inherit;font-size:15px;padding:10px 14px;margin:0;border:2px solid #111;background:#fff;color:#111;font-weight:bold;cursor:pointer;touch-action:none}
+.tb.on{background:#111;color:#fff}
+.tb.fire{background:#ffe9b3;min-width:84px}
 </style>
 </head>
 <body>
@@ -122,6 +129,12 @@ h2 { font-size: 25px; letter-spacing: 4px; margin-bottom: 16px; }
 <div id="cvArea"><canvas id="cv" width="560" height="400"></canvas></div>
 
 <div id="missileHint"></div>
+<div id="touchBar">
+  <div class="tg"><button class="tb" data-k="down">▼后退</button><button class="tb" data-k="up">▲前进</button></div>
+  <div class="tg"><button class="tb" data-k="left">↺左转</button><button class="tb" data-k="right">↻右转</button></div>
+  <div class="tg"><button class="tb fire" data-k="fire">开火</button></div>
+  <div class="tg"><button class="tb" data-k="mine">地雷</button><button class="tb" data-k="med">医疗</button></div>
+</div>
 <div id="tipBar">Esc 暂停 · 击杀后自动进商店换图 · 游戏无结束条件，退出请走暂停菜单</div>
 <div id="toast"></div>
 
@@ -317,6 +330,7 @@ const AI = { on: false, id: 1, diff: DIFFS[0],
 /* 虚拟按键层：人类读键盘，AI 读自己的决策结果，双方走同一套移动/开火代码 */
 function vkey(pid, act) {
   if (AI.on && pid === AI.id) return !!AI.keys[act];
+  if (pid === 0 && touchKeys[act]) return true;   // 触屏长按按键（玩家1）
   return keys.has(CONTROLS[pid][act]);
 }
 
@@ -458,8 +472,10 @@ const ctx = cv.getContext("2d");
 const C = CONFIG.cell;
 /* CSS 等比缩放：只改 style 宽高，逻辑坐标不变 */
 function fitCanvas() {
+  const tbEl = document.getElementById("touchBar");
+  const tbH = tbEl && tbEl.style.display !== "none" ? tbEl.offsetHeight + 6 : 0;
   const availW = window.innerWidth - 30;
-  const availH = window.innerHeight - 75 - 30 - 24;   // HUD + 下边距
+  const availH = window.innerHeight - 75 - 30 - 24 - tbH;   // HUD + 下边距 + 触屏按键栏
   const lw = cv.width, lh = cv.height;
   const k = Math.max(0.2, Math.min(availW / lw, availH / lh));
   cv.style.width = Math.round(lw * k) + "px";
@@ -631,6 +647,8 @@ const SFX = {
    输入（仅 BATTLE 状态推进逻辑；SHOP/PAUSE 下全部计时器随逻辑冻结）
    ===================================================================== */
 const keys = new Set();
+/* 触屏按键长按状态：与键盘共用同一套 vkey 虚拟键层 */
+const touchKeys = {};
 function clearKeys() { keys.clear(); }
 window.addEventListener("keydown", function (e) {
   const c = e.code;
@@ -661,6 +679,32 @@ window.addEventListener("keydown", function (e) {
   }
 });
 window.addEventListener("keyup", e => keys.delete(e.code));
+/* 触屏长按按钮：前进/后退/左右转/开火按住连发；地雷、医疗单击触发 */
+(function bindTouchBar() {
+  const bar = document.getElementById("touchBar");
+  bar.addEventListener("pointerdown", function (e) {
+    const b = e.target.closest(".tb");
+    if (!b) return;
+    e.preventDefault();
+    initAudio();
+    const k = b.dataset.k;
+    if (k === "mine") { placeMine(0); return; }
+    if (k === "med") { useMed(0); return; }
+    touchKeys[k] = true;
+    b.classList.add("on");
+    if (b.setPointerCapture) { try { b.setPointerCapture(e.pointerId); } catch (err) {} }
+  });
+  function release(e) {
+    const b = e.target.closest && e.target.closest(".tb");
+    if (!b) return;
+    touchKeys[b.dataset.k] = false;
+    b.classList.remove("on");
+  }
+  bar.addEventListener("pointerup", release);
+  bar.addEventListener("pointercancel", release);
+  bar.addEventListener("lostpointercapture", release);
+  bar.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+})();
 window.addEventListener("blur", clearKeys);
 
 /* =====================================================================
@@ -1656,6 +1700,11 @@ const SCREEN_IDS = { MENU: "scr-menu", SETTINGS: "scr-settings", HOWTO: "scr-how
 function setState(s) {
   state.screen = s;
   state.binding = null;                          // 切换界面时退出改键录入
+  const tbEl = document.getElementById("touchBar");
+  if (tbEl) {                                    // 触屏按键栏仅人机对战战斗中显示（普通流，不遮挡画面）
+    tbEl.style.display = (s === "BATTLE" && AI.on) ? "flex" : "none";
+    fitCanvas();
+  }
   for (const k in SCREEN_IDS) {
     document.getElementById(SCREEN_IDS[k]).classList.toggle("show", k === s);
   }
