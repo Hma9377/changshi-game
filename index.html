@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>像素坦克争霸 v3</title>
+<style>
+/* ================= 全局：白底黑墙极简像素风 ================= */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: #ffffff; }
+body {
+  font-family: "Consolas", "Courier New", "Microsoft YaHei", monospace;
+  color: #111111; user-select: none; -webkit-user-select: none;
+}
+/* ---------- 顶部 HUD：固定高度 HTML 长条，宽度=窗口宽 ---------- */
+#hud {
+  position: fixed; left: 0; top: 0; width: 100%; height: 72px;
+  background: #ffffff; border-bottom: 3px solid #111111;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 18px; font-size: 13px; z-index: 5;
+}
+.hsd { width: 360px; line-height: 1.4; }
+.hsd.right { text-align: right; }
+.hname { font-weight: bold; font-size: 15px; }
+.c0 { color: #e04a3f; } .c1 { color: #3f7ee0; }
+.hbar {
+  display: inline-block; width: 120px; height: 10px; vertical-align: middle;
+  border: 2px solid #111; background: #fff;
+}
+.hfill { display: block; height: 100%; width: 100%; background: #3faf50; }
+#hmid { text-align: center; white-space: nowrap; }
+#hScore { font-size: 20px; font-weight: bold; }
+#hInfo { font-size: 12px; color: #444; margin-top: 2px; }
+/* ---------- 画布区域：HUD 下方居中，等比缩放 ---------- */
+#cvArea {
+  position: fixed; left: 0; right: 0; top: 75px; bottom: 30px;
+  display: flex; align-items: center; justify-content: center;
+}
+#cv { image-rendering: pixelated; background: #ffffff; border: 3px solid #111; }
+/* ---------- 画布下方的提示条 ---------- */
+#missileHint {
+  position: fixed; left: 0; width: 100%; bottom: 24px; text-align: center;
+  font-size: 15px; font-weight: bold; display: none; z-index: 6;
+}
+#tipBar {
+  position: fixed; left: 0; width: 100%; bottom: 5px; text-align: center;
+  font-size: 11px; color: #888; z-index: 6;
+}
+/* ---------- 换图提示 ---------- */
+#toast {
+  position: fixed; left: 50%; top: 42%; transform: translate(-50%,-50%);
+  font-size: 34px; font-weight: bold; letter-spacing: 6px; color: #111;
+  background: rgba(255,255,255,.85); border: 3px solid #111; padding: 10px 34px;
+  display: none; z-index: 7; animation: toastfade 1.4s forwards;
+}
+@keyframes toastfade { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
+/* ---------- 覆盖界面 ---------- */
+.screen {
+  position: fixed; inset: 0; display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.97); z-index: 10; padding: 20px; overflow: auto;
+}
+.screen.show { display: flex; }
+h1 { font-size: 54px; letter-spacing: 10px; margin-bottom: 6px; text-shadow: 4px 4px 0 #d8d8d8; }
+h2 { font-size: 25px; letter-spacing: 4px; margin-bottom: 16px; }
+.sub { color: #777; margin-bottom: 26px; letter-spacing: 3px; }
+.btn {
+  font-family: inherit; font-size: 17px; letter-spacing: 3px; cursor: pointer;
+  padding: 10px 30px; margin: 6px; color: #111; background: #ffffff;
+  border: 3px solid #111; border-radius: 0; box-shadow: 4px 4px 0 #c9c9c9;
+  transition: background .08s, transform .05s;
+}
+.btn:hover:not(:disabled) { background: #e4e4e4; }
+.btn:active:not(:disabled) { transform: translate(3px,3px); box-shadow: none; }
+.btn:disabled { color: #999; border-color: #999; box-shadow: 3px 3px 0 #e0e0e0; cursor: not-allowed; }
+.btn.sm { font-size: 13px; padding: 5px 14px; letter-spacing: 1px; box-shadow: 2px 2px 0 #c9c9c9; }
+.btn.sel { background: #111; color: #fff; }
+.panel { border: 2px solid #111; padding: 16px 22px; margin-bottom: 14px; background: #fff; box-shadow: 5px 5px 0 #e2e2e2; }
+.tip { color: #666; font-size: 13px; margin-top: 12px; line-height: 1.8; text-align: center; }
+.kbd { border: 1px solid #111; padding: 0 6px; background: #f2f2f2; }
+.rowline { margin: 6px 0; font-size: 15px; }
+/* ---------- 商店 ---------- */
+#shopHead { font-size: 15px; margin-bottom: 12px; }
+#shopCols { display: flex; gap: 14px; max-width: 980px; width: 100%; }
+.shopCol { flex: 1; border: 2px solid #111; padding: 10px 12px; background: #fff; box-shadow: 5px 5px 0 #e2e2e2; }
+.shopCol h3 { font-size: 16px; margin-bottom: 4px; }
+.shopStat { font-size: 12px; color: #333; line-height: 1.6; border-bottom: 2px solid #111; padding-bottom: 6px; margin-bottom: 4px; min-height: 46px; }
+.shopItem { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px dashed #bbb; }
+.shopItem .nm { flex: 1; font-size: 13px; line-height: 1.25; }
+.shopItem .nm small { display: block; color: #777; font-size: 11px; }
+.shopItem .st { width: 70px; font-size: 11px; text-align: right; color: #333; }
+.shopItem .btn { width: 100px; }
+.ovLine { font-size: 17px; margin: 7px 0; }
+</style>
+</head>
+<body>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hsd">
+    <div class="hname c0">玩家1</div>
+    <span class="hbar"><span class="hfill" id="hp0"></span></span> <b id="hpt0">HP 100/100</b><br>
+    <span id="htxt0"></span>
+  </div>
+  <div id="hmid">
+    <div id="hScore"><span class="c0">0</span> : <span class="c1">0</span></div>
+    <div id="hInfo"></div>
+  </div>
+  <div class="hsd right">
+    <div class="hname c1">玩家2</div>
+    <span class="hbar"><span class="hfill" id="hp1"></span></span> <b id="hpt1">HP 100/100</b><br>
+    <span id="htxt1"></span>
+  </div>
+</div>
+
+<!-- 画布：只画游戏画面 -->
+<div id="cvArea"><canvas id="cv" width="560" height="400"></canvas></div>
+
+<div id="missileHint"></div>
+<div id="tipBar">Esc 暂停 · 击杀后自动进商店换图 · 游戏无结束条件，退出请走暂停菜单</div>
+<div id="toast"></div>
+
+<!-- MENU 大厅 -->
+<div class="screen" id="scr-menu">
+  <h1>像素坦克争霸</h1>
+  <div class="sub">PIXEL TANK DUEL — 随机地图 · 反弹自伤 · 纯积分制</div>
+  <button class="btn" id="btnStart">开 始 对 战</button>
+  <button class="btn" id="btnToSettings">对 局 设 置</button>
+  <button class="btn" id="btnToHowto">玩 法 说 明</button>
+  <button class="btn" id="btnSound">音效开关：开</button>
+</div>
+
+<!-- SETTINGS 对局设置 -->
+<div class="screen" id="scr-settings">
+  <h2>对局设置</h2>
+  <div class="panel">
+    <div class="rowline">初始金币</div>
+    <button class="btn sm gbtn" data-v="80">80</button>
+    <button class="btn sm gbtn" data-v="120">120</button>
+    <button class="btn sm gbtn" data-v="160">160</button>
+    <div class="rowline" style="margin-top:14px">地图规模</div>
+    <button class="btn sm mbtn" data-v="small">偏小 14~16列 × 10~12行</button>
+    <button class="btn sm mbtn" data-v="random">随机 14~22列 × 10~16行</button>
+    <button class="btn sm mbtn" data-v="large">偏大 18~22列 × 12~16行</button>
+    <div class="tip" id="setTip"></div>
+  </div>
+  <div>
+    <button class="btn sm" id="btnDefault">恢复默认</button>
+    <button class="btn sm" id="btnBackSettings">返 回</button>
+  </div>
+</div>
+
+<!-- HOWTO 玩法说明 -->
+<div class="screen" id="scr-howto">
+  <h2>玩法说明</h2>
+  <div class="panel" style="font-size:14px;line-height:1.95;max-width:700px">
+    <div><b class="c0">玩家1（红）</b>：<span class="kbd">W</span>前进 <span class="kbd">S</span>后退 <span class="kbd">A</span><span class="kbd">D</span>转向 <span class="kbd">空格</span>开火 <span class="kbd">Q</span>医疗包 <span class="kbd">E</span>布雷</div>
+    <div><b class="c1">玩家2（蓝）</b>：<span class="kbd">↑</span>前进 <span class="kbd">↓</span>后退 <span class="kbd">←</span><span class="kbd">→</span>转向 <span class="kbd">回车</span>开火 <span class="kbd">,</span>医疗包 <span class="kbd">.</span>布雷</div>
+    <div>· 每张地图随机生成（连通性自检），反弹子弹出膛 0.15 秒后<b>能打死自己</b>；普通类子弹<b>无限反弹</b>，存活 4 秒自动消失。</div>
+    <div>· 击杀对方：+1 分、+80 金币（被击杀方 +30），随即弹出商店并更换一张新地图。</div>
+    <div>· 打死自己：<b>视同被对方击杀</b>——对方 +1 分 +80 金币，你 +30 金币，进商店后换新图。</div>
+    <div>· 武器：普通炮 / 双管枪（一弹双丸）/ 喷火枪（<b>长按发射键喷锥形烈焰</b>，持续燃烧、被墙遮挡无效）/ 激光炮（贯穿全屏，<b>±10° 锥形自动锁敌</b>）/ 导弹（高速惯性，<b>可反弹 2 次</b>，转向键操控）。</div>
+    <div>· 地雷：敌踩 40 伤害自己踩不响，<b>放下 1 秒后完全隐身</b>；医疗包：回复 50 血，冷却 8 秒。</div>
+    <div>· 本游戏没有回合、没有时限、没有目标分，<b>永远不会自动结束</b>。</div>
+    <div>· <span class="kbd">Esc</span> 暂停：可继续战斗、进商店（换图）、退出对战查看结算。</div>
+  </div>
+  <button class="btn" id="btnBackHowto">返 回</button>
+</div>
+
+<!-- SHOP 商店 -->
+<div class="screen" id="scr-shop">
+  <h2>商 店</h2>
+  <div id="shopHead"></div>
+  <div id="shopCols"></div>
+  <button class="btn" id="btnResumeMap" style="margin-top:14px">继 续 战 斗（换新地图）</button>
+</div>
+
+<!-- PAUSE 暂停 -->
+<div class="screen" id="scr-pause">
+  <h2>暂 停</h2>
+  <div class="ovLine" id="pauseInfo"></div>
+  <button class="btn" id="btnContinue">继 续 战 斗</button>
+  <button class="btn" id="btnPauseShop">进 商 店（换图）</button>
+  <button class="btn" id="btnQuit">退 出 对 战</button>
+</div>
+
+<!-- MATCH_OVER 整场结算 -->
+<div class="screen" id="scr-matchover">
+  <h2>对 战 结 束</h2>
+  <div id="moBox" style="text-align:center"></div>
+  <div>
+    <button class="btn" id="btnHome">返 回 大 厅</button>
+    <button class="btn" id="btnRematch">再 来 一 局</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   像素坦克争霸 v3 —— 随机地图 / 反弹自伤 / 纯积分制 / 击杀换图
+   单文件 · 原生 JS + Canvas 2D · Web Audio 合成音效 · 无任何外部依赖
+   ===================================================================== */
+
+/* ----------------------------- CONFIG ----------------------------- */
+const CONFIG = {
+  cell: 40,                                   // 格子 40x40
+  map: {                                      // 地图规模倾向（列/行随机范围）
+    small:  { c1: 14, c2: 16, r1: 10, r2: 12 },
+    random: { c1: 14, c2: 22, r1: 10, r2: 16 },
+    large:  { c1: 18, c2: 22, r1: 12, r2: 16 }
+  },
+  densityMin: 0.25, densityMax: 0.45,         // 墙密度随机范围
+  genMaxTry: 30,                              // 单一密度最多重试次数
+  genDensStep: 0.95, genDensRounds: 10,       // 失败后密度 -5% 再试
+  spawnDistK: 0.7,                            // 出生点距离取前 30% 最大的组合
+  tankSize: 26,
+  speedFwd: 100, speedBack: 60, turnDeg: 200, // 像素/秒、度/秒
+  hpBase: 100,
+  respawnSelf: 3, invincible: 1.5,            // （旧规则遗留，自毁现直接判负换图）/ 无敌秒数
+  bullet: { size: 6, speed: 320, dmg: 25, cd: 0.55, maxAlive: 3, life: 4, muzzle: 18, selfGrace: 0.15 },   // 反弹不限次数，存活 4 秒后消失
+  laser:   { width: 6.4, dmg: 20, cd: 1.8, beamLife: 0.35, maxAlive: 1, price: 200, ammoOnce: 6, ammoMax: 12, cone: 10 },   // 全屏贯穿光束；±10° 锥形自动锁敌
+  missile: { size: 8, speed: 300, dmg: 35, cd: 2.5, life: 3, aimRate: 300, followRate: 130, bounces: 2, price: 180, ammoOnce: 8, ammoMax: 16, selfGrace: 0.35 },   // 购买数量加倍；可反弹 2 次
+  flame: { range: 160, halfAngle: 16, dps: 55, fuelRate: 22, price: 160, ammoOnce: 100, ammoMax: 200 },   // 锥形烈焰：≈55伤/秒（2秒烧死满血），射程4格，燃料≈4.5秒/包
+  twin:  { dmg: 18, cd: 0.9, spread: 5, price: 220, ammoOnce: 10, ammoMax: 20 },   // 双管枪：1 发弹药同时射出 2 颗 ±5° 散布弹
+  mine:  { price: 60, dmg: 40, triggerR: 20, maxOnField: 5, behind: 22, hideDelay: 1 },   // 放下 1 秒后隐身（仍可引爆）
+  med:   { price: 60, heal: 50, cd: 8 },
+  upSpd: { price: 80, max: 3, per: 0.12 },
+  upFr:  { price: 80, max: 3, per: 0.15, floor: 0.15 },
+  upHp:  { price: 120, max: 2, per: 25 },
+  killGold: 80, deathGold: 30                 // 击杀者 / 被击杀者金币
+};
+
+/* ------------------------ 键位与配色 ------------------------ */
+const COLORS = [{ main: "#e04a3f", name: "玩家1" }, { main: "#3f7ee0", name: "玩家2" }];
+const CONTROLS = [
+  { up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD", fire: "Space", med: "KeyQ", mine: "KeyE" },
+  { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight", fire: "Enter", med: "Comma", mine: "Period" }
+];
+const BLOCK_KEYS = new Set(["Space", "Enter", "NumpadEnter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
+const WEAPON_NAME = { normal: "普通炮", laser: "激光炮", missile: "导弹", flame: "喷火枪", twin: "双管枪" };
+/* 当前装备武器的剩余弹药显示 */
+function ammoNowOf(p) {
+  if (p.equip === "laser") return p.ammoLaser;
+  if (p.equip === "missile") return p.ammoMissile;
+  if (p.equip === "flame") return Math.ceil(p.ammoFlame);
+  if (p.equip === "twin") return p.ammoTwin;
+  return "∞";
+}
+
+/* ------------------------ 全局状态 ------------------------ */
+const state = {
+  screen: "MENU",                             // MENU|SETTINGS|HOWTO|BATTLE|SHOP|PAUSE|MATCH_OVER
+  soundOn: true,
+  settings: { gold: 80, mapPref: "random" },
+  G: null                                     // 整场对局数据
+};
+function newPlayer(gold) {
+  return { gold: gold, lvSpd: 0, lvFr: 0, lvHp: 0,
+           equip: "normal",
+           ammoLaser: 0, ammoMissile: 0, ammoFlame: 0, ammoTwin: 0,
+           mineBag: 0, medBag: 0 };
+}
+function maxHpOf(p) { return CONFIG.hpBase + CONFIG.upHp.per * p.lvHp; }
+function speedMulOf(p) { return 1 + CONFIG.upSpd.per * p.lvSpd; }
+function cdOf(p, base) { return Math.max(CONFIG.upFr.floor, base * (1 - CONFIG.upFr.per * p.lvFr)); }
+
+/* =====================================================================
+   随机地图生成：随机规模 -> 随机墙 -> 平滑后处理 -> BFS 连通自检
+   -> 出生点候选 + BFS 距离组合筛选 -> 失败降密度重试 -> 全开放兜底
+   ===================================================================== */
+function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+
+/* BFS 洪水填充：返回每个格子的步数（墙/不可达 = -1） */
+function bfsDist(grid, cols, rows, start) {
+  const dist = new Int32Array(cols * rows).fill(-1);
+  const q = [start]; dist[start] = 0;
+  for (let head = 0; head < q.length; head++) {
+    const cur = q[head], cx = cur % cols, cy = (cur / cols) | 0, d = dist[cur] + 1;
+    const nb = [cur - 1, cur + 1, cur - cols, cur + cols];
+    if (cx === 0) nb[0] = -1; if (cx === cols - 1) nb[1] = -1;   // 防换行
+    for (let k = 0; k < 4; k++) {
+      const n = nb[k];
+      if (n >= 0 && n < cols * rows && grid[n] === 0 && dist[n] < 0) { dist[n] = d; q.push(n); }
+    }
+  }
+  return dist;
+}
+/* 上下左右四个邻居中墙的个数（越界算墙） */
+function wallN(grid, cols, rows, idx) {
+  const x = idx % cols, y = (idx / cols) | 0;
+  let n = 0;
+  if (x === 0 || grid[idx - 1] === 1) n++;
+  if (x === cols - 1 || grid[idx + 1] === 1) n++;
+  if (y === 0 || grid[idx - cols] === 1) n++;
+  if (y === rows - 1 || grid[idx + cols] === 1) n++;
+  return n;
+}
+function baseGrid(cols, rows, density) {
+  const grid = new Uint8Array(cols * rows);
+  for (let y = 0; y < rows; y++)
+    for (let x = 0; x < cols; x++)
+      grid[y * cols + x] = (x === 0 || y === 0 || x === cols - 1 || y === rows - 1) ? 1
+                          : (Math.random() < density ? 1 : 0);
+  return grid;
+}
+/* 一次生成尝试：失败返回 null（作废重生成） */
+function tryGenMap(cols, rows, density) {
+  const grid = baseGrid(cols, rows, density);
+  // 后处理 1：把四周全墙的孤立 1 格夹缝补成墙
+  const snap1 = grid.slice();
+  for (let y = 1; y < rows - 1; y++)
+    for (let x = 1; x < cols - 1; x++) {
+      const i = y * cols + x;
+      if (snap1[i] === 0 && wallN(snap1, cols, rows, i) >= 4) grid[i] = 1;
+    }
+  // 后处理 2：拆除“三面邻墙”的凸角死结墙，改善通行（§4.5）
+  const snap2 = grid.slice();
+  for (let y = 1; y < rows - 1; y++)
+    for (let x = 1; x < cols - 1; x++) {
+      const i = y * cols + x;
+      if (snap2[i] === 1 && wallN(snap2, cols, rows, i) >= 3 && Math.random() < 0.5) grid[i] = 0;
+    }
+  // 出生点候选：空地 + 四邻至少 3 个空地
+  const c1 = [], c2 = [];
+  let floorTotal = 0;
+  for (let y = 1; y < rows - 1; y++)
+    for (let x = 1; x < cols - 1; x++) {
+      const i = y * cols + x;
+      if (grid[i] !== 0) continue;
+      floorTotal++;
+      if (4 - wallN(grid, cols, rows, i) >= 3) (x < cols / 2 ? c1 : c2).push(i);
+    }
+  if (!c1.length || !c2.length) return null;
+  // 连通性自检：从玩家1 候选出发，可达空地必须等于空地总数
+  const d0 = bfsDist(grid, cols, rows, c1[0]);
+  let reach = 0; for (let i = 0; i < d0.length; i++) if (d0[i] >= 0) reach++;
+  if (reach !== floorTotal) return null;
+  // 出生点组合：BFS 距离 >= (cols+rows)/2，取距离最大前 30% 里随机一对
+  const need = (cols + rows) / 2;
+  const pairs = [];
+  const srcs = c1.length > 40 ? c1.slice().sort(() => Math.random() - 0.5).slice(0, 40) : c1;
+  for (const s of srcs) {
+    const dist = bfsDist(grid, cols, rows, s);
+    for (const t of c2) {
+      const d = dist[t];
+      if (d >= 0 && d >= need) pairs.push([s, t, d]);
+    }
+  }
+  if (!pairs.length) return null;
+  pairs.sort((a, b) => b[2] - a[2]);
+  const top = Math.max(1, Math.ceil(pairs.length * (1 - CONFIG.spawnDistK)));
+  const pick = pairs[Math.floor(Math.random() * top)];
+  let walls = 0; for (let i = 0; i < grid.length; i++) walls += grid[i];
+  return { cols, rows, grid, p1: pick[0], p2: pick[1],
+           wallPct: Math.round(100 * walls / grid.length) };
+}
+/* 完整流程：最多 genMaxTry 次；失败降密度 5% 再试；最后全开放兜底 */
+function generateMap() {
+  const pref = CONFIG.map[state.settings.mapPref] || CONFIG.map.random;
+  const cols = randInt(pref.c1, pref.c2), rows = randInt(pref.r1, pref.r2);
+  let density = CONFIG.densityMin + Math.random() * (CONFIG.densityMax - CONFIG.densityMin);
+  for (let round = 0; round < CONFIG.genDensRounds; round++) {
+    for (let att = 0; att < CONFIG.genMaxTry; att++) {
+      const g = tryGenMap(cols, rows, density);
+      if (g) return g;
+    }
+    density = Math.max(0.05, density * CONFIG.genDensStep);   // 每次降低 5%
+  }
+  // 绝对兜底：只有外圈墙的全开放地图，必定连通、必定有合格出生点
+  const grid = baseGrid(cols, rows, 0);
+  const c1 = [], c2 = [];
+  for (let y = 1; y < rows - 1; y++)
+    for (let x = 1; x < cols - 1; x++) {
+      const i = y * cols + x;
+      if (grid[i] === 0) (x < cols / 2 ? c1 : c2).push(i);
+    }
+  const s = c1[0], t = c2[c2.length - 1];   // 取对角方向候选，保证出生点距离达标
+  let walls = 0; for (let i = 0; i < grid.length; i++) walls += grid[i];
+  return { cols, rows, grid, p1: s, p2: t, wallPct: Math.round(100 * walls / grid.length) };
+}
+
+/* ------------------------ 画布与缩放 ------------------------ */
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+const C = CONFIG.cell;
+/* CSS 等比缩放：只改 style 宽高，逻辑坐标不变 */
+function fitCanvas() {
+  const availW = window.innerWidth - 30;
+  const availH = window.innerHeight - 75 - 30 - 24;   // HUD + 下边距
+  const lw = cv.width, lh = cv.height;
+  const k = Math.max(0.2, Math.min(availW / lw, availH / lh));
+  cv.style.width = Math.round(lw * k) + "px";
+  cv.style.height = Math.round(lh * k) + "px";
+}
+window.addEventListener("resize", fitCanvas);
+
+/* ------------------------ 墙体/碰撞查询 ------------------------ */
+function isWallCell(cx, cy) {
+  const G = state.G;
+  if (cx < 0 || cy < 0 || cx >= G.cols || cy >= G.rows) return true;
+  return G.grid[cy * G.cols + cx] === 1;
+}
+/* 仅当在地图范围内且是墙格才为真（线描/线段生长用，不含越界） */
+function wallIn(cx, cy) {
+  const G = state.G;
+  if (cx < 0 || cy < 0 || cx >= G.cols || cy >= G.rows) return false;
+  return G.grid[cy * G.cols + cx] === 1;
+}
+/* 墙已无厚度：每格墙渲染/碰撞为“格中心的细线段网络”：
+   中心 6x6 节点 + 朝每个墙邻居方向的 6px 宽半段，相邻格线段在格边界首尾相接。
+   向 out 数组推入矩形组 [x0,y0,x1,y1,...]，返回长度 */
+const LINE_T = 3;                                   // 线半宽（总粗 6px）
+function cellRects(cx, cy, out) {
+  const px = cx * C + C / 2, py = cy * C + C / 2;
+  out.push(px - LINE_T, py - LINE_T, px + LINE_T, py + LINE_T);            // 中心节点
+  if (wallIn(cx, cy - 1)) out.push(px - LINE_T, cy * C, px + LINE_T, py + LINE_T);
+  if (wallIn(cx, cy + 1)) out.push(px - LINE_T, py - LINE_T, px + LINE_T, (cy + 1) * C);
+  if (wallIn(cx - 1, cy)) out.push(cx * C, py - LINE_T, px + LINE_T, py + LINE_T);
+  if (wallIn(cx + 1, cy)) out.push(px - LINE_T, py - LINE_T, (cx + 1) * C, py + LINE_T);
+  return out.length;
+}
+/* 以 (cx,cy) 为中心、半边长 h 的 AABB 碰到的第一个墙线段矩形（无则 null） */
+const _rects = [];
+function firstWallRect(cx, cy, h) {
+  const G = state.G;
+  const x0 = Math.floor((cx - h) / C), x1 = Math.floor((cx + h) / C);
+  const y0 = Math.floor((cy - h) / C), y1 = Math.floor((cy + h) / C);
+  for (let ty = y0; ty <= y1; ty++)
+    for (let tx = x0; tx <= x1; tx++) {
+      if (tx < 0 || ty < 0 || tx >= G.cols || ty >= G.rows) continue;
+      if (G.grid[ty * G.cols + tx] !== 1) continue;
+      _rects.length = 0;                                  // 每格重新收集，避免旧线段残留
+      const L = cellRects(tx, ty, _rects);
+      for (let i = 0; i < L; i += 4) {
+        if (cx - h < _rects[i + 2] && cx + h > _rects[i] &&
+            cy - h < _rects[i + 3] && cy + h > _rects[i + 1])
+          return [_rects[i], _rects[i + 1], _rects[i + 2], _rects[i + 3]];
+      }
+    }
+  return null;
+}
+/* 碰撞总入口：画布四边视为实体 + 细线段墙 */
+function hitsWall(cx, cy, h) {
+  const G = state.G;
+  if (cx - h < 0 || cy - h < 0 || cx + h > G.cols * C || cy + h > G.rows * C) return true;
+  return firstWallRect(cx, cy, h) !== null;
+}
+
+/* =====================================================================
+   对局与地图流程
+   ===================================================================== */
+function startMatch() {
+  // §12.1 整场重置
+  state.G = {
+    time: 0, mapNo: 0,
+    score: [0, 0], kills: [0, 0],
+    players: [newPlayer(state.settings.gold), newPlayer(state.settings.gold)],
+    cols: 14, rows: 10, grid: null, wallPct: 0, spawn: null,
+    tanks: [], bullets: [], lasers: [], missiles: [], mines: [], parts: [],
+    flash: 0, deaths: []
+  };
+  setState("BATTLE");
+  newMap();
+}
+/* 生成新地图并把双方坦克放回出生点（§4.10） */
+function newMap() {
+  const G = state.G;
+  const M = generateMap();
+  G.mapNo++;
+  G.cols = M.cols; G.rows = M.rows; G.grid = M.grid; G.wallPct = M.wallPct;
+  cv.width = M.cols * C; cv.height = M.rows * C;
+  fitCanvas();
+  const midX = cv.width / 2, midY = cv.height / 2;
+  const cellPos = function (i) {
+    const x = i % M.cols, y = (i / M.cols) | 0;
+    const px = x * C + C / 2, py = y * C + C / 2;
+    return { x: px, y: py, ang: Math.atan2(midY - py, midX - px) };   // 炮口朝地图中心
+  };
+  G.spawn = [cellPos(M.p1), cellPos(M.p2)];
+  G.bullets = []; G.lasers = []; G.missiles = []; G.mines = []; G.parts = [];
+  G.flash = 0; G.deaths = [];
+  G.tanks = [0, 1].map(function (i) {
+    const p = G.players[i], s = G.spawn[i];
+    return { id: i, x: s.x, y: s.y, angle: s.ang,
+             hp: maxHpOf(p), maxHp: maxHpOf(p),
+             cool: { normal: 0, laser: 0, missile: 0, flame: 0, twin: 0 }, medCd: 0,
+             flameVis: 0, flameLen: CONFIG.flame.range, burnT: 0, sprayT: 0, spraying: false,
+             dead: false, frozen: false, missileOut: false,
+             invUntil: G.time + CONFIG.invincible, respawnAt: 0, lastHitBy: null };
+  });
+  clearKeys();
+  updateHUD();
+  showToast("地图 " + G.mapNo + "　" + G.cols + "×" + G.rows);
+  SFX.mapChange();
+}
+
+/* =====================================================================
+   音效（Web Audio 实时合成，全部无音频文件）
+   ===================================================================== */
+let actx = null, master = null;
+function initAudio() {
+  if (actx) { if (actx.state === "suspended") actx.resume(); return; }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = state.soundOn ? 0.32 : 0;
+    master.connect(actx.destination);
+  } catch (e) { actx = null; }
+}
+function tone(f0, f1, dur, type, vol, delay) {
+  if (!actx || !state.soundOn) return;
+  try {
+    const t = actx.currentTime + (delay || 0);
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || "square";
+    o.frequency.setValueAtTime(f0, t);
+    if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(vol || 0.18, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  } catch (e) { /* 忽略 */ }
+}
+function noiseHit(dur, vol) {
+  if (!actx || !state.soundOn) return;
+  try {
+    const n = Math.max(16, Math.floor(actx.sampleRate * dur));
+    const buf = actx.createBuffer(1, n, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = actx.createBufferSource(); src.buffer = buf;
+    const g = actx.createGain(); g.gain.value = vol || 0.18;
+    src.connect(g); g.connect(master); src.start();
+  } catch (e) { /* 忽略 */ }
+}
+const SFX = {
+  fire: () => tone(480, 330, 0.07, "square", 0.15),
+  laser: () => tone(1500, 280, 0.28, "sawtooth", 0.13),
+  missileGo: () => tone(300, 320, 0.45, "sawtooth", 0.12),
+  flame: () => noiseHit(0.06, 0.07),
+  bounce: () => tone(950, 950, 0.04, "square", 0.09),
+  hit: () => noiseHit(0.09, 0.2),
+  boom: () => tone(180, 45, 0.4, "square", 0.25),
+  buy: () => { tone(600, 600, 0.07, "square", 0.12); tone(900, 900, 0.07, "square", 0.12, 0.08); },
+  mapChange: () => { tone(440, 440, 0.06, "square", 0.1); tone(660, 660, 0.08, "square", 0.1, 0.07); },
+  result: () => { tone(523, 523, 0.1, "square", 0.12); tone(659, 659, 0.1, "square", 0.12, 0.11); tone(784, 784, 0.15, "square", 0.12, 0.22); },
+  pause: () => tone(500, 420, 0.05, "square", 0.09),
+  click: () => tone(760, 760, 0.03, "square", 0.07)
+};
+
+/* =====================================================================
+   输入（仅 BATTLE 状态推进逻辑；SHOP/PAUSE 下全部计时器随逻辑冻结）
+   ===================================================================== */
+const keys = new Set();
+function clearKeys() { keys.clear(); }
+window.addEventListener("keydown", function (e) {
+  const c = e.code;
+  if (BLOCK_KEYS.has(c)) e.preventDefault();
+  if (c === "Escape") {
+    if (state.screen === "BATTLE") { SFX.pause(); showPause(); }
+    else if (state.screen === "PAUSE") { SFX.pause(); setState("BATTLE"); }
+    return;
+  }
+  if (state.screen !== "BATTLE" || !state.G) return;
+  keys.add(c);
+  if (e.repeat) return;
+  for (let i = 0; i < 2; i++) {
+    if (c === CONTROLS[i].fire) tryFire(i);
+    else if (c === CONTROLS[i].med) useMed(i);
+    else if (c === CONTROLS[i].mine) placeMine(i);
+  }
+});
+window.addEventListener("keyup", e => keys.delete(e.code));
+window.addEventListener("blur", clearKeys);
+
+/* =====================================================================
+   坦克 / 武器 / 道具
+   ===================================================================== */
+/* 激光贯穿：射线从 (px,py) 沿 (dx,dy) 到出屏处的距离 */
+function rayExitDist(px, py, dx, dy) {
+  const G = state.G, Wl = G.cols * C, Hl = G.rows * C;
+  let t = 1e9;
+  if (dx > 1e-9) t = Math.min(t, (Wl - px) / dx); else if (dx < -1e-9) t = Math.min(t, -px / dx);
+  if (dy > 1e-9) t = Math.min(t, (Hl - py) / dy); else if (dy < -1e-9) t = Math.min(t, -py / dy);
+  return Math.max(0, t);
+}
+/* 射线命中检测（无视墙体）：返回射线上距发射点最近的敌方坦克 */
+function rayHitTank(px, py, dx, dy, maxT, owner) {
+  const G = state.G, hs = CONFIG.tankSize / 2;
+  let best = null, bestT = Infinity;
+  for (const t of G.tanks) {
+    if (t.id === owner || t.dead || G.time < t.invUntil) continue;
+    const x0 = t.x - hs, x1 = t.x + hs, y0 = t.y - hs, y1 = t.y + hs;
+    let tmin = -Infinity, tmax = Infinity;
+    if (Math.abs(dx) < 1e-9) { if (px < x0 || px > x1) continue; }
+    else { let a = (x0 - px) / dx, b = (x1 - px) / dx; if (a > b) { const s = a; a = b; b = s; } tmin = Math.max(tmin, a); tmax = Math.min(tmax, b); }
+    if (Math.abs(dy) < 1e-9) { if (py < y0 || py > y1) continue; }
+    else { let a = (y0 - py) / dy, b = (y1 - py) / dy; if (a > b) { const s = a; a = b; b = s; } tmin = Math.max(tmin, a); tmax = Math.min(tmax, b); }
+    if (tmax < Math.max(0, tmin)) continue;
+    const hitT = Math.max(0, tmin);
+    if (hitT <= maxT && hitT < bestT) { bestT = hitT; best = t; }
+  }
+  return best ? { tank: best, t: bestT } : null;
+}
+
+/* 激光自动锁敌：瞄准方向 ±cone 度锥形内的敌方坦克，返回最近角度的一个 */
+function laserFindLock(px, py, dx, dy, maxT, owner) {
+  const G = state.G;
+  const cone = CONFIG.laser.cone * Math.PI / 180;
+  let best = null, bestDiff = Infinity;
+  for (const t of G.tanks) {
+    if (t.id === owner || t.dead || G.time < t.invUntil) continue;
+    const vx = t.x - px, vy = t.y - py;
+    const dist = Math.hypot(vx, vy);
+    if (dist < 1 || dist > maxT) continue;
+    const cosA = (vx * dx + vy * dy) / dist;                 // 与瞄准方向夹角
+    const ang = Math.acos(Math.max(-1, Math.min(1, cosA)));
+    if (ang <= cone && ang < bestDiff) { bestDiff = ang; best = { tank: t, dist: dist }; }
+  }
+  return best;
+}
+
+function tryFire(i) {
+  const G = state.G, t = G.tanks[i], p = G.players[i];
+  if (!t || t.dead || t.frozen) return;
+  if (p.equip === "laser" && p.ammoLaser <= 0) p.equip = "normal";
+  if (p.equip === "missile" && p.ammoMissile <= 0) p.equip = "normal";
+  if (p.equip === "flame" && p.ammoFlame <= 0) p.equip = "normal";
+  if (p.equip === "twin" && p.ammoTwin <= 0) p.equip = "normal";
+  const w = p.equip;
+  if (w === "flame") return;                                 // 喷火枪由 updateFlames 长按逻辑处理
+  if (G.time < t.cool[w]) return;
+  // 炮口出生点：若顶在墙里则沿炮管线逐段回退，保证贴墙也能开火（反弹后才能自伤）
+  const cs = Math.cos(t.angle), sn = Math.sin(t.angle);
+  let mx = t.x, my = t.y, muzzleD = 0;
+  const tryDs = [CONFIG.bullet.muzzle, 14, 10, 6, 2];
+  for (const d of tryDs) {
+    const px = t.x + cs * d, py = t.y + sn * d;
+    if (!hitsWall(px, py, 4)) { mx = px; my = py; muzzleD = d; break; }
+  }
+  if (w === "missile" && muzzleD < CONFIG.bullet.muzzle) return;   // 导弹出生点必须在安全距（≥命中半径4+13）之外，防止出膛瞬间打到贴着的自己
+  if (w === "normal") {
+    let n = 0; for (const b of G.bullets) if (b.owner === i) n++;
+    if (n >= CONFIG.bullet.maxAlive) return;
+    G.bullets.push({ x: mx, y: my, vx: cs * CONFIG.bullet.speed,
+                     vy: sn * CONFIG.bullet.speed,
+                     owner: i, age: 0, bounces: 0, life: CONFIG.bullet.life, dmg: CONFIG.bullet.dmg, dead: false });
+    t.cool.normal = G.time + cdOf(p, CONFIG.bullet.cd);
+    SFX.fire();
+  } else if (w === "laser") {
+    let n = 0; for (const l of G.lasers) if (l.owner === i) n++;
+    if (n >= CONFIG.laser.maxAlive || p.ammoLaser <= 0) return;
+    p.ammoLaser--;
+    // 贯穿光束：炮口到出屏；10° 锥形内敌人被自动锁定，光束弯曲直接命中
+    const exitLen = rayExitDist(mx, my, cs, sn);
+    const lock = laserFindLock(mx, my, cs, sn, exitLen, i);
+    let beam;
+    if (lock) {
+      const d = lock.dist;                                   // 弯曲光束：贝塞尔控制点沿原瞄准方向，尾端拐向目标
+      beam = { x: mx, y: my, ex: lock.tank.x, ey: lock.tank.y,
+               cx: mx + cs * d * 0.55, cy: my + sn * d * 0.55,
+               owner: i, life: CONFIG.laser.beamLife, max: CONFIG.laser.beamLife, dead: false };
+    } else {
+      beam = { x: mx, y: my, ex: mx + cs * exitLen, ey: my + sn * exitLen,
+               cx: mx + cs * exitLen * 0.5, cy: my + sn * exitLen * 0.5,   // 直线（贝塞尔退化）
+               owner: i, life: CONFIG.laser.beamLife, max: CONFIG.laser.beamLife, dead: false };
+    }
+    G.lasers.push(beam);
+    t.cool.laser = G.time + cdOf(p, CONFIG.laser.cd);
+    SFX.laser();
+    if (lock) damageTank(lock.tank, CONFIG.laser.dmg, i);
+    else { const hit = rayHitTank(mx, my, cs, sn, exitLen, i); if (hit) damageTank(hit.tank, CONFIG.laser.dmg, i); }
+  } else if (w === "missile") {
+    if (t.missileOut || p.ammoMissile <= 0) return;
+    p.ammoMissile--;
+    t.missileOut = true; t.frozen = true;                // 操控锁定
+    G.missiles.push({ x: mx, y: my, ang: t.angle, want: t.angle, owner: i,
+                      age: 0, bounces: 0, life: CONFIG.missile.life, trail: 0, dead: false });
+    t.cool.missile = G.time + cdOf(p, CONFIG.missile.cd);
+    SFX.missileGo();
+  } else if (w === "twin") {
+    let n = 0; for (const b of G.bullets) if (b.owner === i) n++;
+    if (n > CONFIG.bullet.maxAlive - 2 || p.ammoTwin <= 0) return;   // 一次消耗 1 发弹药、射出 2 颗弹
+    p.ammoTwin--;
+    const sd = CONFIG.twin.spread * Math.PI / 180;
+    for (const off of [-sd, sd]) {
+      const a = t.angle + off;
+      G.bullets.push({ x: mx, y: my, vx: Math.cos(a) * CONFIG.bullet.speed,
+                       vy: Math.sin(a) * CONFIG.bullet.speed,
+                       owner: i, age: 0, bounces: 0, life: CONFIG.bullet.life, dmg: CONFIG.twin.dmg, dead: false });
+    }
+    t.cool.twin = G.time + cdOf(p, CONFIG.twin.cd);
+    SFX.fire();
+  }
+  // 任意特殊武器打空 -> 自动装回普通炮
+  if (p.equip === "laser" && p.ammoLaser <= 0) p.equip = "normal";
+  if (p.equip === "missile" && p.ammoMissile <= 0) p.equip = "normal";
+  if (p.equip === "flame" && p.ammoFlame <= 0) p.equip = "normal";
+  if (p.equip === "twin" && p.ammoTwin <= 0) p.equip = "normal";
+}
+
+function placeMine(i) {
+  const G = state.G, t = G.tanks[i], p = G.players[i];
+  if (!t || t.dead || t.frozen || p.mineBag <= 0) return;
+  let n = 0; for (const m of G.mines) if (m.owner === i && !m.dead) n++;
+  if (n >= CONFIG.mine.maxOnField) return;
+  let px = t.x - Math.cos(t.angle) * CONFIG.mine.behind;
+  let py = t.y - Math.sin(t.angle) * CONFIG.mine.behind;
+  if (hitsWall(px, py, 4)) { px = t.x; py = t.y; }
+  for (const m of G.mines) {
+    if (!m.dead && Math.abs(m.x - px) < 14 && Math.abs(m.y - py) < 14) return;  // 不叠放
+  }
+  p.mineBag--;
+  G.mines.push({ x: px, y: py, owner: i, placedAt: G.time, dead: false });   // hideDelay 秒后隐身
+  SFX.pause();
+}
+
+function useMed(i) {
+  const G = state.G, t = G.tanks[i], p = G.players[i];
+  if (!t || t.dead || t.frozen || p.medBag <= 0) return;
+  if (G.time < t.medCd) return;                          // 冷却中按键无效
+  if (t.hp >= t.maxHp) return;
+  p.medBag--;
+  t.hp = Math.min(t.maxHp, t.hp + CONFIG.med.heal);
+  t.medCd = G.time + CONFIG.med.cd;
+  SFX.buy();
+}
+
+/* 坦克移动：先 X 后 Y 分轴结算；撞线时撑到线段表面，另一轴可继续滑动 */
+function moveTank(t, dx, dy) {
+  const hs = CONFIG.tankSize / 2;
+  if (dx !== 0) {
+    const old = t.x;
+    t.x += dx;
+    if (hitsWall(t.x, t.y, hs)) {
+      const r = firstWallRect(t.x, t.y, hs);
+      if (r) t.x = dx > 0 ? r[0] - hs - 0.01 : r[2] + hs + 0.01;
+      if (hitsWall(t.x, t.y, hs)) t.x = old;
+    }
+  }
+  if (dy !== 0) {
+    const old = t.y;
+    t.y += dy;
+    if (hitsWall(t.x, t.y, hs)) {
+      const r = firstWallRect(t.x, t.y, hs);
+      if (r) t.y = dy > 0 ? r[1] - hs - 0.01 : r[3] + hs + 0.01;
+      if (hitsWall(t.x, t.y, hs)) t.y = old;
+    }
+  }
+}
+
+function spawnParts(x, y, n, color, speed) {
+  const G = state.G;
+  for (let k = 0; k < n; k++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = (0.3 + Math.random() * 0.8) * (speed || 120);
+    G.parts.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+                   life: 0.35 + Math.random() * 0.35, max: 0.7, color: color,
+                   size: 2 + Math.floor(Math.random() * 4) });
+  }
+}
+
+/* 伤害入口：src=伤害来源玩家（-1=无主）；无敌期不掉血 */
+function damageTank(t, dmg, src, quiet) {
+  const G = state.G;
+  if (t.dead || G.time < t.invUntil) return;
+  t.hp -= dmg;
+  t.lastHitBy = src;
+  if (!quiet) {                                  // quiet=true：喷火枪持续燃烧，不逐帧响音效
+    spawnParts(t.x, t.y, 8, COLORS[t.id].main, 150);
+    G.flash = 0.08;
+    SFX.hit();
+  }
+  if (t.hp <= 0) {
+    t.hp = 0; t.dead = true;
+    spawnParts(t.x, t.y, 20, COLORS[t.id].main, 220);
+    SFX.boom();
+    if (G.deaths.indexOf(t.id) < 0) G.deaths.push(t.id);
+  }
+}
+
+/* 击杀归属结算（§7.3）：同一帧先算分再切状态 */
+function handleDeaths() {
+  const G = state.G;
+  if (!G.deaths.length) return;
+  const ids = G.deaths.slice(); G.deaths.length = 0;
+  let goShop = false;
+  for (const id of ids) {
+    // 被击毁时清除自己放在场上的地雷；子弹不清理
+    for (const m of G.mines) if (m.owner === id) m.dead = true;
+    G.mines = G.mines.filter(m => !m.dead);
+  }
+  for (const id of ids) {
+    let killer = G.tanks[id].lastHitBy;
+    if (killer === null || killer === id) {
+      // 自毁视同被对方击杀：对手获得全部击杀奖励（+1分+80金币）
+      killer = 1 - id;
+      showToast(COLORS[id].name + " 自毁身亡，视同被 " + COLORS[killer].name + " 击杀");
+    }
+    // 击杀者 +1 分 +80 金币，死者 +30 金币，进商店换图
+    G.score[killer]++; G.kills[killer]++;
+    G.players[killer].gold += CONFIG.killGold;
+    G.players[id].gold += CONFIG.deathGold;
+    goShop = true;
+  }
+  updateHUD();
+  if (goShop) showShop();
+}
+
+/* =====================================================================
+   实体更新（只有 BATTLE 状态被调用 -> SHOP/PAUSE 天然整体冻结）
+   ===================================================================== */
+function updateTanks(dt) {
+  const G = state.G;
+  const rad = CONFIG.turnDeg * Math.PI / 180;
+  for (const t of G.tanks) {
+    // 自杀重生倒计时
+    if (t.dead) {
+      if (t.respawnAt > 0 && G.time >= t.respawnAt) {
+        const s = G.spawn[t.id];
+        t.dead = false; t.hp = t.maxHp; t.x = s.x; t.y = s.y; t.angle = s.ang;
+        t.invUntil = G.time + CONFIG.invincible; t.respawnAt = 0;
+        t.frozen = false; t.missileOut = false; t.lastHitBy = null;
+      }
+      continue;
+    }
+    if (t.frozen) continue;                              // 导弹操控锁定
+    const kc = CONTROLS[t.id], p = G.players[t.id], sm = speedMulOf(p);
+    if (keys.has(kc.left)) t.angle -= rad * dt;
+    if (keys.has(kc.right)) t.angle += rad * dt;
+    let v = 0;
+    if (keys.has(kc.up)) v = CONFIG.speedFwd * sm;
+    else if (keys.has(kc.down)) v = -CONFIG.speedBack * sm;
+    if (v !== 0) moveTank(t, Math.cos(t.angle) * v * dt, Math.sin(t.angle) * v * dt);
+  }
+}
+
+function updateBullets(dt) {
+  const G = state.G;
+  const h = CONFIG.bullet.size / 2;
+  for (const b of G.bullets) {
+    if (b.dead) continue;
+    b.life -= dt; b.age += dt;
+    if (b.life <= 0) { b.dead = true; continue; }
+    // 位移分小步；每步内先 X 后 Y 两轴独立反弹（碰到细线段墙时撑出线面 2px 并取反）
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(b.vx), Math.abs(b.vy)) * dt / 6));
+    const sdt = dt / steps;
+    for (let s = 0; s < steps && !b.dead; s++) {
+      b.x += b.vx * sdt;
+      if (hitsWall(b.x, b.y, h)) {                       // X 轴反弹
+        const r = firstWallRect(b.x, b.y, h);
+        if (r) b.x = b.vx > 0 ? r[0] - h - 2 : r[2] + h + 2;
+        else b.x -= b.vx * sdt * 2;                      // 越界兑底：退回
+        b.vx = -b.vx; b.bounces++;                       // 反弹不限次数（仅计数），存活到期消失
+        spawnParts(b.x, b.y, 4, "#666", 80); SFX.bounce();
+      }
+      if (!b.dead) {
+        b.y += b.vy * sdt;
+        if (hitsWall(b.x, b.y, h)) {                     // Y 轴反弹
+          const r = firstWallRect(b.x, b.y, h);
+          if (r) b.y = b.vy > 0 ? r[1] - h - 2 : r[3] + h + 2;
+          else b.y -= b.vy * sdt * 2;
+          b.vy = -b.vy; b.bounces++;
+          spawnParts(b.x, b.y, 4, "#666", 80); SFX.bounce();
+        }
+      }
+      // 命中坦克：出膛 selfGrace 内不撞发射者，之后会自伤
+      if (!b.dead) {
+        for (const t of G.tanks) {
+          if (t.dead || G.time < t.invUntil) continue;      // 无敌期直接穿过
+          if (b.owner === t.id && b.age < CONFIG.bullet.selfGrace) continue;
+          const hs = CONFIG.tankSize / 2;
+          if (Math.abs(b.x - t.x) < h + hs && Math.abs(b.y - t.y) < h + hs) {
+            b.dead = true;
+            damageTank(t, b.dmg, b.owner);            // 伤害随子弹类型（普通25 / 双管18）
+            break;
+          }
+        }
+      }
+    }
+  }
+  G.bullets = G.bullets.filter(b => !b.dead);
+}
+
+function updateLasers(dt) {
+  // 激光是瞬时贯穿光束：不再飞行，只让光束余晖渐隐
+  const G = state.G;
+  for (const l of G.lasers) {
+    if (l.dead) continue;
+    l.life -= dt;
+    if (l.life <= 0) l.dead = true;
+  }
+  G.lasers = G.lasers.filter(l => !l.dead);
+}
+
+function updateMissiles(dt) {
+  const G = state.G;
+  for (const ms of G.missiles) {
+    if (ms.dead) continue;
+    ms.life -= dt; ms.age += dt;
+    if (ms.life <= 0) { killMissile(ms); continue; }
+    // 发射者的转向键控制“机头指向”，实际飞行方向以受限速率跟随 → 惯性，方向不能突变
+    const kc = CONTROLS[ms.owner];
+    if (keys.has(kc.left)) ms.want -= CONFIG.missile.aimRate * Math.PI / 180 * dt;
+    if (keys.has(kc.right)) ms.want += CONFIG.missile.aimRate * Math.PI / 180 * dt;
+    let diff = ms.want - ms.ang;
+    while (diff > Math.PI) diff -= 2 * Math.PI;
+    while (diff < -Math.PI) diff += 2 * Math.PI;
+    const maxStep = CONFIG.missile.followRate * Math.PI / 180 * dt;
+    ms.ang += Math.max(-maxStep, Math.min(maxStep, diff));
+    const steps = Math.max(1, Math.ceil(CONFIG.missile.speed * dt / 5));
+    const sdt = dt / steps;
+    for (let s = 0; s < steps && !ms.dead; s++) {
+      // X/Y 分轴推进：导弹可反弹 2 次，第 3 次碰墙才爆炸
+      ms.x += Math.cos(ms.ang) * CONFIG.missile.speed * sdt;
+      if (hitsWall(ms.x, ms.y, CONFIG.missile.size / 2)) {
+        const r = firstWallRect(ms.x, ms.y, CONFIG.missile.size / 2);
+        if (r) ms.x = Math.cos(ms.ang) > 0 ? r[0] - CONFIG.missile.size / 2 - 2
+                                           : r[2] + CONFIG.missile.size / 2 + 2;
+        ms.ang = Math.PI - ms.ang; ms.want = ms.ang;        // 水平镜像反弹
+        ms.bounces++;
+        spawnParts(ms.x, ms.y, 4, "#666", 80); SFX.bounce();
+        if (ms.bounces > CONFIG.missile.bounces) { explodeMissile(ms); break; }
+      }
+      if (!ms.dead) {
+        ms.y += Math.sin(ms.ang) * CONFIG.missile.speed * sdt;
+        if (hitsWall(ms.x, ms.y, CONFIG.missile.size / 2)) {
+          const r = firstWallRect(ms.x, ms.y, CONFIG.missile.size / 2);
+          if (r) ms.y = Math.sin(ms.ang) > 0 ? r[1] - CONFIG.missile.size / 2 - 2
+                                             : r[3] + CONFIG.missile.size / 2 + 2;
+          ms.ang = -ms.ang; ms.want = ms.ang;               // 垂直镜像反弹
+          ms.bounces++;
+          spawnParts(ms.x, ms.y, 4, "#666", 80); SFX.bounce();
+          if (ms.bounces > CONFIG.missile.bounces) { explodeMissile(ms); break; }
+        }
+      }
+      if (!ms.dead) for (const t of G.tanks) {
+        if (t.dead) continue;
+        if (t.id === ms.owner && ms.age < CONFIG.missile.selfGrace) continue;   // 出膛短暂不伤发射者（之后仍可操控撞自己）
+        const hs = CONFIG.tankSize / 2;
+        if (Math.abs(ms.x - t.x) < CONFIG.missile.size / 2 + hs &&
+            Math.abs(ms.y - t.y) < CONFIG.missile.size / 2 + hs) {
+          spawnParts(ms.x, ms.y, 12, "#444", 160); SFX.boom();
+          damageTank(t, CONFIG.missile.dmg, ms.owner);
+          killMissile(ms); break;
+        }
+      }
+    }
+    ms.trail += dt;
+    if (!ms.dead && ms.trail > 0.03) {
+      ms.trail = 0;
+      G.parts.push({ x: ms.x - Math.cos(ms.ang) * 6, y: ms.y - Math.sin(ms.ang) * 6,
+                     vx: 0, vy: 0, life: 0.25, max: 0.25, color: "#999", size: 3 });
+    }
+  }
+  G.missiles = G.missiles.filter(m => !m.dead);
+}
+/* 导弹终结爆炸 */
+function explodeMissile(ms) {
+  spawnParts(ms.x, ms.y, 12, "#444", 160); SFX.boom();
+  killMissile(ms);
+}
+/* 导弹消失 -> 立刻解除操控锁定 */
+function killMissile(ms) {
+  ms.dead = true;
+  const t = state.G.tanks[ms.owner];
+  t.frozen = false; t.missileOut = false;
+}
+
+function updateMines() {
+  const G = state.G;
+  for (const m of G.mines) {
+    if (m.dead) continue;
+    const t = G.tanks[1 - m.owner];                      // 自己踩不触发
+    if (t.dead) continue;
+    if (Math.hypot(t.x - m.x, t.y - m.y) <= CONFIG.mine.triggerR) {
+      m.dead = true;
+      spawnParts(m.x, m.y, 14, "#111", 180);
+      SFX.boom();
+      damageTank(t, CONFIG.mine.dmg, m.owner);
+    }
+  }
+  G.mines = G.mines.filter(m => !m.dead);
+}
+
+function updateFlames(dt) {
+  // 喷火枪：长按发射键持续喷锥形火焰（耗燃料、可边移动边烧，火焰被墙遮挡无效）
+  const G = state.G;
+  for (const t of G.tanks) {
+    const p = G.players[t.id];
+    let spray = false;
+    if (!t.dead && !t.frozen && p.equip === "flame" && p.ammoFlame > 0 &&
+        keys.has(CONTROLS[t.id].fire)) {
+      spray = true;
+      p.ammoFlame = Math.max(0, p.ammoFlame - CONFIG.flame.fuelRate * dt);
+      // 沿中轴线推进到首面墙，得到碰墙截短后的火焰长度
+      const cs = Math.cos(t.angle), sn = Math.sin(t.angle);
+      const ox = t.x + cs * 12, oy = t.y + sn * 12;
+      let len = CONFIG.flame.range;
+      for (let d = 6; d <= CONFIG.flame.range; d += 6) {
+        if (hitsWall(ox + cs * d, oy + sn * d, 2)) { len = Math.max(10, d - 6); break; }
+      }
+      t.flameLen = len;
+      // 锥形命中：距离内 + 锥角内 + 中轴线无墙挡住（只能烧到敌方，烧不到自己）
+      const e = G.tanks[1 - t.id];
+      if (!e.dead && G.time >= e.invUntil) {
+        const dx = e.x - ox, dy = e.y - oy;
+        const dist = Math.hypot(dx, dy);
+        if (dist <= len + CONFIG.tankSize / 2) {
+          let da = Math.atan2(dy, dx) - t.angle;
+          while (da > Math.PI) da -= Math.PI * 2;
+          while (da < -Math.PI) da += Math.PI * 2;
+          const limit = CONFIG.flame.halfAngle * Math.PI / 180 + Math.atan((CONFIG.tankSize / 2) / Math.max(20, dist));
+          if (Math.abs(da) <= limit) {
+            let blocked = false;
+            const nS = Math.max(1, Math.ceil(dist / 8));
+            for (let sN = 1; sN < nS; sN++) {
+              const u = sN / nS;
+              if (hitsWall(ox + dx * u, oy + dy * u, 2)) { blocked = true; break; }
+            }
+            if (!blocked) {
+              // 走统一伤害结算（quiet：燃烧不逐帧响），死亡/击杀归属/商店全部复用 damageTank 流程
+              damageTank(e, CONFIG.flame.dps * dt, t.id, true);
+              t.burnT -= dt;
+              if (t.burnT <= 0 && !e.dead) { t.burnT = 0.14; SFX.hit(); spawnParts(e.x, e.y, 2, "#ff8c1a", 60); }
+            }
+          }
+        }
+      }
+      // 喷射噪音 + 火焰星粒
+      t.sprayT -= dt;
+      if (t.sprayT <= 0) { t.sprayT = 0.09; SFX.flame(); }
+      const a = t.angle + (Math.random() * 2 - 1) * CONFIG.flame.halfAngle * Math.PI / 180;
+      const d = 12 + Math.random() * len;
+      G.parts.push({ x: ox + Math.cos(a) * d, y: oy + Math.sin(a) * d,
+                     vx: Math.cos(a) * 70, vy: Math.sin(a) * 70,
+                     life: 0.22, max: 0.22, color: Math.random() < 0.5 ? "#ffd23f" : "#ff8c1a", size: 3 });
+    }
+    t.spraying = spray;
+    t.flameVis = Math.max(0, Math.min(1, t.flameVis + (spray ? 9 : -8) * dt));   // 点火快、熄灭快
+    if (p.equip === "flame" && p.ammoFlame <= 0) p.equip = "normal";             // 烧干燃料 -> 换回普通炮
+  }
+}
+
+function updateGame(dt) {
+  const G = state.G;
+  G.time += dt;                                          // 游戏时钟：只在 BATTLE 推进
+  updateTanks(dt);
+  updateBullets(dt);
+  updateLasers(dt);
+  updateMissiles(dt);
+  updateFlames(dt);
+  updateMines();
+  for (const p of G.parts) {
+    p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vx *= 0.92; p.vy *= 0.92;
+  }
+  G.parts = G.parts.filter(p => p.life > 0);
+  if (G.flash > 0) G.flash -= dt;
+  handleDeaths();                                        // 全部结算完再可能切状态
+}
+
+/* =====================================================================
+   绘制（画布只画游戏画面）
+   ===================================================================== */
+function drawMap() {
+  const G = state.G;
+  const w = cv.width, h = cv.height;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = "#f7f7f7"; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 1; x < G.cols; x++) { ctx.moveTo(x * C + 0.5, 0); ctx.lineTo(x * C + 0.5, h); }
+  for (let y = 1; y < G.rows; y++) { ctx.moveTo(0, y * C + 0.5); ctx.lineTo(w, y * C + 0.5); }
+  ctx.stroke();
+  // 墙体线条化：墙没有厚度，只画格中心线段的黑色细线（碰撞与绘制一致）
+  ctx.fillStyle = "#111111";
+  for (let y = 0; y < G.rows; y++) {
+    for (let x = 0; x < G.cols; x++) {
+      if (G.grid[y * G.cols + x] !== 1) continue;
+      const px = x * C + C / 2, py = y * C + C / 2, T = LINE_T;
+      ctx.fillRect(px - T, py - T, T * 2, T * 2);                       // 中心节点
+      if (wallIn(x, y - 1)) ctx.fillRect(px - T, y * C, T * 2, C / 2 + T);
+      if (wallIn(x, y + 1)) ctx.fillRect(px - T, py - T, T * 2, C / 2 + T);
+      if (wallIn(x - 1, y)) ctx.fillRect(x * C, py - T, C / 2 + T, T * 2);
+      if (wallIn(x + 1, y)) ctx.fillRect(px - T, py - T, C / 2 + T, T * 2);
+    }
+  }
+}
+function drawTank(t) {
+  if (t.dead) return;
+  if (state.G.time < t.invUntil && (Math.floor(state.G.time * 10) % 2 === 0)) return;  // 无敌闪烁
+  const hs = CONFIG.tankSize / 2, col = COLORS[t.id];
+  ctx.save();
+  ctx.translate(t.x, t.y);
+  ctx.rotate(t.angle);
+  ctx.fillStyle = "#111111";                              // 两侧履带深色细条
+  ctx.fillRect(-hs + 1, -hs, CONFIG.tankSize - 2, 4);
+  ctx.fillRect(-hs + 1, hs - 4, CONFIG.tankSize - 2, 4);
+  ctx.fillStyle = col.main;                               // 车身 + 深色描边
+  ctx.fillRect(-hs + 4, -hs + 5, CONFIG.tankSize - 8, CONFIG.tankSize - 10);
+  ctx.strokeStyle = "#111111"; ctx.lineWidth = 1.5;
+  ctx.strokeRect(-hs + 4, -hs + 5, CONFIG.tankSize - 8, CONFIG.tankSize - 10);
+  ctx.fillStyle = "#111111";                              // 炮管
+  ctx.fillRect(0, -2, hs + 6, 4);
+  ctx.restore();
+}
+function drawEntities() {
+  const G = state.G;
+  for (const m of G.mines) {                              // 地雷：放下 hideDelay 秒后完全隐身（仍可引爆）
+    if (G.time - m.placedAt > CONFIG.mine.hideDelay) continue;
+    const bl = 0.55 + 0.45 * Math.sin(G.time * 8 + m.x);
+    ctx.beginPath(); ctx.arc(m.x, m.y, 10, 0, Math.PI * 2);
+    ctx.fillStyle = COLORS[m.owner].main; ctx.globalAlpha = 0.35; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(m.x, m.y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = "#111111"; ctx.fill();
+    ctx.strokeStyle = "#111111"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(m.x, m.y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "#e04a3f"; ctx.globalAlpha = bl; ctx.fill(); ctx.globalAlpha = 1;
+  }
+  const bh = CONFIG.bullet.size / 2;
+  for (const b of G.bullets) {
+    ctx.fillStyle = COLORS[b.owner].main;
+    ctx.fillRect(b.x - bh, b.y - bh, CONFIG.bullet.size, CONFIG.bullet.size);
+    ctx.strokeStyle = "#111111"; ctx.lineWidth = 1.5;
+    ctx.strokeRect(b.x - bh, b.y - bh, CONFIG.bullet.size, CONFIG.bullet.size);
+  }
+  for (const l of G.lasers) {           // 贯穿/弯曲光束：贝塞尔曲线，深色描边+玩家色核心，余晖渐隐
+    ctx.globalAlpha = Math.max(0, l.life / l.max);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(l.x, l.y);
+    for (let s = 1; s <= 24; s++) {
+      const u = s / 24, iu = 1 - u;
+      ctx.lineTo(iu * iu * l.x + 2 * iu * u * l.cx + u * u * l.ex,
+                 iu * iu * l.y + 2 * iu * u * l.cy + u * u * l.ey);
+    }
+    ctx.strokeStyle = "#111111"; ctx.lineWidth = CONFIG.laser.width + 4; ctx.stroke();
+    ctx.strokeStyle = COLORS[l.owner].main; ctx.lineWidth = CONFIG.laser.width; ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  for (const ms of G.missiles) {
+    ctx.save(); ctx.translate(ms.x, ms.y); ctx.rotate(ms.ang);
+    const s = CONFIG.missile.size;
+    ctx.fillStyle = COLORS[ms.owner].main;
+    ctx.fillRect(-s / 2, -s / 2, s, s);
+    ctx.strokeStyle = "#111111"; ctx.lineWidth = 1.5;
+    ctx.strokeRect(-s / 2, -s / 2, s, s);
+    ctx.restore();
+  }
+  for (const p of G.parts) {
+    ctx.globalAlpha = Math.max(0, p.life / p.max);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+}
+/* 喷火枪 visuals：长按时炮口喷出三层闪烁锥焰（深橙/橙/黄芯），边缘正弦抖动 */
+function drawFlameCone(t) {
+  const G = state.G;
+  const v = t.flameVis;
+  if (v <= 0.01) return;
+  const half = CONFIG.flame.halfAngle * Math.PI / 180;
+  const len = t.flameLen || CONFIG.flame.range;
+  const flick = 0.94 + 0.06 * Math.sin(G.time * 43 + t.id * 5) + Math.random() * 0.05;
+  ctx.save();
+  ctx.translate(t.x + Math.cos(t.angle) * 12, t.y + Math.sin(t.angle) * 12);
+  ctx.rotate(t.angle);
+  const layers = [
+    { k: 1.0,  c: "rgba(255, 90, 31,"  + (0.5 * v).toFixed(3) + ")" },
+    { k: 0.72, c: "rgba(255, 140, 26," + (0.65 * v).toFixed(3) + ")" },
+    { k: 0.42, c: "rgba(255, 210, 63," + (0.8 * v).toFixed(3) + ")" }
+  ];
+  for (const L of layers) {
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    for (let s = 0; s <= 14; s++) {                     // 边缘拖动→火焰噘动质感
+      const a = -half + 2 * half * s / 14;
+      const rr = len * L.k * flick * (0.9 + 0.1 * Math.sin(s * 2.6 + G.time * 30));
+      ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    ctx.closePath();
+    ctx.fillStyle = L.c;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function draw() {
+  const G = state.G;
+  if (!G) { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height); return; }
+  drawMap();
+  drawEntities();
+  for (const t of G.tanks) drawTank(t);
+  for (const t of G.tanks) drawFlameCone(t);           // 锥焰画在坦克上层，烧到敌人时火焰盖在身上
+  if (G.flash > 0) {                                     // 命中屏幕闪白
+    ctx.fillStyle = "rgba(255,255,255," + Math.min(0.5, G.flash * 4).toFixed(3) + ")";
+    ctx.fillRect(0, 0, cv.width, cv.height);
+  }
+}
+
+/* =====================================================================
+   HUD / 提示（HTML 元素）
+   ===================================================================== */
+function updateHUD() {
+  const G = state.G;
+  if (!G) return;
+  for (let i = 0; i < 2; i++) {
+    const t = G.tanks[i], p = G.players[i];
+    if (!t) continue;
+    document.getElementById("hp" + i).style.width = (100 * t.hp / t.maxHp) + "%";
+    document.getElementById("hpt" + i).textContent = "HP " + t.hp + "/" + t.maxHp;
+    const ammo = ammoNowOf(p);
+    document.getElementById("htxt" + i).innerHTML =
+      WEAPON_NAME[p.equip] + " x" + ammo + "　金币 <b>" + p.gold + "</b>　雷 x" + p.mineBag + " 药 x" + p.medBag;
+  }
+  document.getElementById("hScore").innerHTML =
+    '<span class="c0">' + G.score[0] + "</span> : <span class='c1'>" + G.score[1] + "</span>";
+  document.getElementById("hInfo").textContent =
+    "累计击杀 " + (G.kills[0] + G.kills[1]) + "　地图 " + G.cols + "×" + G.rows + " · 墙 " + G.wallPct + "%";
+  // 导弹操控提示（画布下方 HTML）
+  const hint = document.getElementById("missileHint");
+  if (G.missiles.length) {
+    const parts = G.missiles.map(ms => "[" + COLORS[ms.owner].name + "] 导弹操控中：" +
+      (ms.owner === 0 ? "A / D" : "← / →") + " 转向");
+    hint.textContent = parts.join("　");
+    hint.style.display = "block";
+  } else hint.style.display = "none";
+}
+function showToast(txt) {
+  const el = document.getElementById("toast");
+  el.textContent = txt;
+  el.style.display = "block";
+  el.style.animation = "none"; void el.offsetWidth;      // 重启 CSS 动画
+  el.style.animation = "toastfade 1.4s forwards";
+}
+
+/* =====================================================================
+   商店（每次击杀强制进入；暂停菜单也可进入）
+   ===================================================================== */
+const SHOP_ITEMS = [
+  { key: "twin", name: "双管枪", desc: "1发弹射2颗±5°散布 每颗18伤害 · 每次+10发(上限20)", price: CONFIG.twin.price },
+  { key: "flame", name: "喷火枪", desc: "长按发射键喷锥形烈焰 持续燃烧 · 每次+100燃料(上限200)", price: CONFIG.flame.price },
+  { key: "laser", name: "激光炮", desc: "伤害20 贯穿全屏 · ±10°自动锁敌 · 每次+6发(上限12)", price: CONFIG.laser.price },
+  { key: "missile", name: "导弹", desc: "伤害35 高速惯性 · 可反弹2次 · 每次+8发(上限16)", price: CONFIG.missile.price },
+  { key: "mine", name: "地雷", desc: "敌踩40伤害 · 放下1秒后隐身 · 场上限5", price: CONFIG.mine.price },
+  { key: "med", name: "医疗包", desc: "回复50血 冷却8秒", price: CONFIG.med.price },
+  { key: "upSpd", name: "升级移速", desc: "每级 +12%", price: CONFIG.upSpd.price },
+  { key: "upFr", name: "升级射速", desc: "每级冷却 -15%", price: CONFIG.upFr.price },
+  { key: "upHp", name: "升级血量", desc: "每级上限 +25", price: CONFIG.upHp.price }
+];
+/* 四类带弹药武器的字段映射 */
+const WEAPON_AMMO_FIELD = { twin: "ammoTwin", flame: "ammoFlame", laser: "ammoLaser", missile: "ammoMissile" };
+function itemState(p, key) {
+  const it = SHOP_ITEMS.find(x => x.key === key);
+  const low = p.gold < it.price;
+  if (WEAPON_AMMO_FIELD[key]) {                 // 双管/喷火/激光/导弹
+    const cur = p[WEAPON_AMMO_FIELD[key]], max = CONFIG[key].ammoMax;
+    const shown = key === "flame" ? Math.ceil(cur) : cur;   // 燃料是连续量，显示向上取整
+    const st = (key === "flame" ? "燃料 " : "弹 ") + shown + "/" + max;
+    if (cur >= max) return { st: st, bt: "弹药已满", dis: true };
+    return { st: st, bt: low ? "金币不足" : "购买 " + it.price, dis: low };
+  }
+  if (key === "mine") return { st: "背包 x" + p.mineBag, bt: low ? "金币不足" : "购买 " + it.price, dis: low };
+  if (key === "med")  return { st: "背包 x" + p.medBag, bt: low ? "金币不足" : "购买 " + it.price, dis: low };
+  if (key === "upSpd") {
+    if (p.lvSpd >= CONFIG.upSpd.max) return { st: "Lv." + p.lvSpd + "/3", bt: "已满级", dis: true };
+    return { st: "Lv." + p.lvSpd + "/3", bt: low ? "金币不足" : "购买 " + it.price, dis: low };
+  }
+  if (key === "upFr") {
+    if (p.lvFr >= CONFIG.upFr.max) return { st: "Lv." + p.lvFr + "/3", bt: "已满级", dis: true };
+    return { st: "Lv." + p.lvFr + "/3", bt: low ? "金币不足" : "购买 " + it.price, dis: low };
+  }
+  if (p.lvHp >= CONFIG.upHp.max) return { st: "Lv." + p.lvHp + "/2", bt: "已满级", dis: true };
+  return { st: "Lv." + p.lvHp + "/2", bt: low ? "金币不足" : "购买 " + it.price, dis: low };
+}
+function renderShop() {
+  const G = state.G;
+  document.getElementById("shopHead").innerHTML =
+    "第 " + G.mapNo + " 张地图结束 · 当前比分 <span class='c0'>玩家1</span> <b>" + G.score[0] +
+    " : " + G.score[1] + "</b> <span class='c1'>玩家2</span> · 累计击杀 " + (G.kills[0] + G.kills[1]) +
+    " 次 · 当前地图 " + G.cols + "×" + G.rows;
+  let html = "";
+  for (let i = 0; i < 2; i++) {
+    const p = G.players[i];
+    const ammoNow = ammoNowOf(p);
+    html += "<div class='shopCol'><h3 class='c" + i + "'>" + COLORS[i].name +
+      "（金币 <b>" + p.gold + "</b>）</h3>" +
+      "<div class='shopStat'>装备：" + WEAPON_NAME[p.equip] + " x" + ammoNow +
+      "　储备：双管" + p.ammoTwin + " 燃料" + p.ammoFlame + " 激光" + p.ammoLaser + " 导弹" + p.ammoMissile +
+      "<br>地雷 x" + p.mineBag + "　医疗包 x" + p.medBag + "　血量上限 " + maxHpOf(p) + "</div>";
+    for (const it of SHOP_ITEMS) {
+      const s = itemState(p, it.key);
+      html += "<div class='shopItem'><div class='nm'>" + it.name + "<small>" + it.desc + "</small></div>" +
+        "<div class='st'>" + s.st + "</div>" +
+        "<button class='btn sm buyBtn' data-p='" + i + "' data-k='" + it.key + "'" +
+        (s.dis ? " disabled" : "") + ">" + s.bt + "</button></div>";
+    }
+    html += "</div>";
+  }
+  document.getElementById("shopCols").innerHTML = html;
+}
+function buyItem(pi, key) {
+  const G = state.G;
+  if (!G || state.screen !== "SHOP") return;
+  const p = G.players[pi];
+  const it = SHOP_ITEMS.find(x => x.key === key);
+  if (itemState(p, key).dis) return;
+  p.gold -= it.price;
+  if (key === "twin") { p.equip = "twin"; p.ammoTwin = Math.min(CONFIG.twin.ammoMax, p.ammoTwin + CONFIG.twin.ammoOnce); }
+  else if (key === "flame") { p.equip = "flame"; p.ammoFlame = Math.min(CONFIG.flame.ammoMax, p.ammoFlame + CONFIG.flame.ammoOnce); }
+  else if (key === "laser") { p.equip = "laser"; p.ammoLaser = Math.min(CONFIG.laser.ammoMax, p.ammoLaser + CONFIG.laser.ammoOnce); }
+  else if (key === "missile") { p.equip = "missile"; p.ammoMissile = Math.min(CONFIG.missile.ammoMax, p.ammoMissile + CONFIG.missile.ammoOnce); }
+  else if (key === "mine") p.mineBag++;
+  else if (key === "med") p.medBag++;
+  else if (key === "upSpd") p.lvSpd++;
+  else if (key === "upFr") p.lvFr++;
+  else if (key === "upHp") p.lvHp++;
+  SFX.buy();
+  renderShop();
+  updateHUD();
+}
+
+/* =====================================================================
+   状态机与界面切换（覆盖层均为 HTML）
+   ===================================================================== */
+const SCREEN_IDS = { MENU: "scr-menu", SETTINGS: "scr-settings", HOWTO: "scr-howto",
+                     SHOP: "scr-shop", PAUSE: "scr-pause", MATCH_OVER: "scr-matchover" };
+function setState(s) {
+  state.screen = s;
+  for (const k in SCREEN_IDS) {
+    document.getElementById(SCREEN_IDS[k]).classList.toggle("show", k === s);
+  }
+  if (s !== "BATTLE") {
+    clearKeys();
+    document.getElementById("missileHint").style.display = "none";   // 离开战斗时收起操控提示
+  }
+  for (const b of document.querySelectorAll("button")) b.blur();  // 防止空格/回车误触按钮
+}
+function showShop() { renderShop(); setState("SHOP"); SFX.mapChange(); }
+function showPause() {
+  const G = state.G;
+  document.getElementById("pauseInfo").innerHTML =
+    "比分 <span class='c0'>" + G.score[0] + "</span> : <span class='c1'>" + G.score[1] +
+    "</span> · 累计击杀 " + (G.kills[0] + G.kills[1]) + " · 第 " + G.mapNo + " 张地图";
+  setState("PAUSE");
+}
+function showMatchOver() {
+  const G = state.G;
+  document.getElementById("moBox").innerHTML =
+    "<div class='ovLine' style='font-size:30px'><span class='c0'>" + G.score[0] +
+    "</span> : <span class='c1'>" + G.score[1] + "</span></div>" +
+    "<div class='ovLine'><span class='c0'>玩家1</span> 击杀 " + G.kills[0] +
+    " 次 · 剩余金币 " + G.players[0].gold + "</div>" +
+    "<div class='ovLine'><span class='c1'>玩家2</span> 击杀 " + G.kills[1] +
+    " 次 · 剩余金币 " + G.players[1].gold + "</div>" +
+    "<div class='ovLine' style='color:#777'>共进行 " + G.mapNo + " 张地图</div>";
+  setState("MATCH_OVER");
+  SFX.result();
+}
+
+function bind(id, fn) {
+  document.getElementById(id).addEventListener("click", function () {
+    initAudio(); SFX.click(); fn();
+  });
+}
+bind("btnStart", function () { startMatch(); });
+bind("btnToSettings", function () { renderSettings(); setState("SETTINGS"); });
+bind("btnToHowto", function () { setState("HOWTO"); });
+bind("btnSound", function () {
+  state.soundOn = !state.soundOn;
+  if (master) master.gain.value = state.soundOn ? 0.32 : 0;
+  document.getElementById("btnSound").textContent = "音效开关：" + (state.soundOn ? "开" : "关");
+});
+bind("btnBackHowto", function () { setState("MENU"); });
+bind("btnBackSettings", function () { setState("MENU"); });
+bind("btnDefault", function () { state.settings.gold = 80; state.settings.mapPref = "random"; renderSettings(); });
+bind("btnContinue", function () { SFX.pause(); setState("BATTLE"); });
+bind("btnPauseShop", function () { showShop(); });
+bind("btnQuit", showMatchOver);
+bind("btnHome", function () { state.G = null; setState("MENU"); });
+bind("btnRematch", function () { startMatch(); });
+bind("btnResumeMap", function () { setState("BATTLE"); newMap(); });   // 继续战斗=生成新地图
+document.getElementById("shopCols").addEventListener("click", function (e) {
+  const btn = e.target.closest(".buyBtn");
+  if (!btn || btn.disabled) return;
+  initAudio();
+  buyItem(+btn.dataset.p, btn.dataset.k);
+});
+for (const b of document.querySelectorAll(".gbtn")) {
+  b.addEventListener("click", function () { initAudio(); SFX.click(); state.settings.gold = +b.dataset.v; renderSettings(); });
+}
+for (const b of document.querySelectorAll(".mbtn")) {
+  b.addEventListener("click", function () { initAudio(); SFX.click(); state.settings.mapPref = b.dataset.v; renderSettings(); });
+}
+function renderSettings() {
+  for (const b of document.querySelectorAll(".gbtn")) b.classList.toggle("sel", +b.dataset.v === state.settings.gold);
+  for (const b of document.querySelectorAll(".mbtn")) b.classList.toggle("sel", b.dataset.v === state.settings.mapPref);
+  document.getElementById("setTip").textContent =
+    "当前：初始金币 " + state.settings.gold + " · 地图规模 " +
+    ({ small: "偏小", random: "随机", large: "偏大" })[state.settings.mapPref];
+}
+
+/* =====================================================================
+   主循环：只有 BATTLE 推进逻辑 —— SHOP/PAUSE 下所有计时器冻结
+   ===================================================================== */
+let lastTs = 0;
+function loop(ts) {
+  if (!lastTs) lastTs = ts;
+  let dt = (ts - lastTs) / 1000;
+  lastTs = ts;
+  if (dt > 0.05) dt = 0.05;
+  if (dt < 0) dt = 0;
+  if (state.screen === "BATTLE" && state.G) {
+    updateGame(dt);
+    updateHUD();
+  }
+  if (state.G) draw();
+  requestAnimationFrame(loop);
+}
+
+/* ------------------------ 启动 ------------------------ */
+renderSettings();
+setState("MENU");
+fitCanvas();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
