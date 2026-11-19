@@ -90,6 +90,12 @@ h2 { font-size: 25px; letter-spacing: 4px; margin-bottom: 16px; }
 .shopItem .st { width: 70px; font-size: 11px; text-align: right; color: #333; }
 .shopItem .btn { width: 100px; }
 .ovLine { font-size: 17px; margin: 7px 0; }
+.keycfg{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:4px}
+.keycol{border:2px solid #111;padding:8px 14px;background:#fff;text-align:left}
+.keycol h4{margin:0 0 6px;font-size:14px}
+.krow{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:5px 0;font-size:13px}
+.kbtn{min-width:112px;margin:0}
+.kbtn.lis{background:#111;color:#fff}
 </style>
 </head>
 <body>
@@ -97,7 +103,7 @@ h2 { font-size: 25px; letter-spacing: 4px; margin-bottom: 16px; }
 <!-- HUD -->
 <div id="hud">
   <div class="hsd">
-    <div class="hname c0">玩家1</div>
+    <div class="hname c0" id="hname0">玩家1</div>
     <span class="hbar"><span class="hfill" id="hp0"></span></span> <b id="hpt0">HP 100/100</b><br>
     <span id="htxt0"></span>
   </div>
@@ -106,7 +112,7 @@ h2 { font-size: 25px; letter-spacing: 4px; margin-bottom: 16px; }
     <div id="hInfo"></div>
   </div>
   <div class="hsd right">
-    <div class="hname c1">玩家2</div>
+    <div class="hname c1" id="hname1">玩家2</div>
     <span class="hbar"><span class="hfill" id="hp1"></span></span> <b id="hpt1">HP 100/100</b><br>
     <span id="htxt1"></span>
   </div>
@@ -123,10 +129,19 @@ h2 { font-size: 25px; letter-spacing: 4px; margin-bottom: 16px; }
 <div class="screen" id="scr-menu">
   <h1>像素坦克争霸</h1>
   <div class="sub">PIXEL TANK DUEL — 随机地图 · 反弹自伤 · 纯积分制</div>
-  <button class="btn" id="btnStart">开 始 对 战</button>
+  <button class="btn" id="btnStart">双 人 对 战</button>
+  <button class="btn" id="btnVsAI">人 机 对 战</button>
   <button class="btn" id="btnToSettings">对 局 设 置</button>
   <button class="btn" id="btnToHowto">玩 法 说 明</button>
   <button class="btn" id="btnSound">音效开关：开</button>
+</div>
+
+<!-- DIFF 人机难度选择 -->
+<div class="screen" id="scr-diff">
+  <h2>选择 AI 难度</h2>
+  <div class="sub">由强到弱 · CPU 将操控蓝方坦克并自动购买</div>
+  <div class="panel" id="diffPanel"></div>
+  <button class="btn sm" id="btnDiffBack">返 回</button>
 </div>
 
 <!-- SETTINGS 对局设置 -->
@@ -141,6 +156,9 @@ h2 { font-size: 25px; letter-spacing: 4px; margin-bottom: 16px; }
     <button class="btn sm mbtn" data-v="small">偏小 14~16列 × 10~12行</button>
     <button class="btn sm mbtn" data-v="random">随机 14~22列 × 10~16行</button>
     <button class="btn sm mbtn" data-v="large">偏大 18~22列 × 12~16行</button>
+    <div class="rowline" style="margin-top:14px">按键设置（点按钮后按新键，Esc 取消，占用同键自动互换）</div>
+    <div id="keyCfg" class="keycfg"></div>
+    <div style="margin-top:8px"><button class="btn sm" id="btnKeyReset">恢复默认键位</button></div>
     <div class="tip" id="setTip"></div>
   </div>
   <div>
@@ -158,6 +176,7 @@ h2 { font-size: 25px; letter-spacing: 4px; margin-bottom: 16px; }
     <div>· 每张地图随机生成（连通性自检），反弹子弹出膛 0.15 秒后<b>能打死自己</b>；普通类子弹<b>无限反弹</b>，存活 4 秒自动消失。</div>
     <div>· 击杀对方：+1 分、+80 金币（被击杀方 +30），随即弹出商店并更换一张新地图。</div>
     <div>· 打死自己：<b>视同被对方击杀</b>——对方 +1 分 +80 金币，你 +30 金币，进商店后换新图。</div>
+    <div>· <b>人机对战</b>：大厅选择难度，由强到弱：<b>夯 / 顶级 / 人上人 / 入机 / 唐B</b>；你操控红方，CPU 操控蓝方（会寻路追击、反弹枪、走位，商店自动购买）。</div>
     <div>· 武器：普通炮 / 双管枪（一弹双丸）/ 喷火枪（<b>长按发射键喷锥形烈焰</b>，持续燃烧、被墙遮挡无效）/ 激光炮（贯穿全屏，<b>±10° 锥形自动锁敌</b>）/ 导弹（高速惯性，<b>可反弹 2 次</b>，转向键操控）。</div>
     <div>· 地雷：敌踩 40 伤害自己踩不响，<b>放下 1 秒后完全隐身</b>；医疗包：回复 50 血，冷却 8 秒。</div>
     <div>· 本游戏没有回合、没有时限、没有目标分，<b>永远不会自动结束</b>。</div>
@@ -236,6 +255,39 @@ const CONTROLS = [
   { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight", fire: "Enter", med: "Comma", mine: "Period" }
 ];
 const BLOCK_KEYS = new Set(["Space", "Enter", "NumpadEnter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
+/* ------------------------ 按键自定义 ------------------------ */
+const KEY_ACTS = [["up", "前进"], ["down", "后退"], ["left", "左转"], ["right", "右转"],
+                  ["fire", "开火"], ["mine", "地雷"], ["med", "医疗包"]];
+const KEY_DEFAULTS = [{ ...CONTROLS[0] }, { ...CONTROLS[1] }];
+function keyName(c) {
+  if (!c) return "-";
+  const map = { Space: "空格", Enter: "回车", NumpadEnter: "小键盘回车", Comma: "逗号 ,", Period: "句号 .",
+    ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→",
+    ShiftLeft: "L-Shift", ShiftRight: "R-Shift", ControlLeft: "L-Ctrl", ControlRight: "R-Ctrl",
+    AltLeft: "L-Alt", AltRight: "R-Alt", Tab: "Tab", Backspace: "退格", Slash: "/", Semicolon: ";",
+    Quote: "'", Backslash: "|", Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]", CapsLock: "大写锁" };
+  if (map[c]) return map[c];
+  let m = c.match(/^Key([A-Z])$/); if (m) return m[1];
+  m = c.match(/^Digit(\d)$/); if (m) return m[1];
+  m = c.match(/^Numpad(\d)$/); if (m) return "小键盘" + m[1];
+  return c;
+}
+function isBoundKey(c) {
+  for (const k of CONTROLS) for (const a in k) if (k[a] === c) return true;
+  return false;
+}
+function saveKeys() { try { localStorage.setItem("ptank_keys", JSON.stringify(CONTROLS)); } catch (e) {} }
+function loadKeys() {
+  try {
+    const s = JSON.parse(localStorage.getItem("ptank_keys") || "null");
+    if (Array.isArray(s) && s.length === 2) {
+      for (let i = 0; i < 2; i++)
+        for (const a in KEY_DEFAULTS[i])
+          if (typeof s[i][a] === "string") CONTROLS[i][a] = s[i][a];
+    }
+  } catch (e) {}
+}
+loadKeys();
 const WEAPON_NAME = { normal: "普通炮", laser: "激光炮", missile: "导弹", flame: "喷火枪", twin: "双管枪" };
 /* 当前装备武器的剩余弹药显示 */
 function ammoNowOf(p) {
@@ -244,6 +296,28 @@ function ammoNowOf(p) {
   if (p.equip === "flame") return Math.ceil(p.ammoFlame);
   if (p.equip === "twin") return p.ammoTwin;
   return "∞";
+}
+
+/* ------------------------ 人机对战：难度表与 AI 状态 ------------------------ */
+/* 由强到弱：夯 / 顶级 / 人上人 / 入机 / 唐B */
+const DIFFS = [
+  { name: "夯",   react: 0.035, aimDeg: 0.4, lead: 1,    dodge: 1,    msErr: 1,   healAt: 0.8,  mineUse: 1,    prefer: 1,    ideal: 150, dash: 2.2,  rico: 1,    tip: "最强：神准+BFS寻路追击+反弹枪+扑跳走位" },
+  { name: "顶级", react: 0.06,  aimDeg: 2,   lead: 0.95, dodge: 0.95, msErr: 2.5, healAt: 0.7,  mineUse: 0.9,  prefer: 0.95, ideal: 160, dash: 1.4,  rico: 0.85, tip: "极强，偶尔马枪" },
+  { name: "人上人", react: 0.10, aimDeg: 5,  lead: 0.85, dodge: 0.65, msErr: 6,   healAt: 0.55, mineUse: 0.65, prefer: 0.8,  ideal: 170, dash: 0.9,  rico: 0.55, tip: "水准不差，不能放水" },
+  { name: "入机", react: 0.18,  aimDeg: 10,  lead: 0.55, dodge: 0.4,  msErr: 12,  healAt: 0.42, mineUse: 0.4,  prefer: 0.6,  ideal: 185, dash: 0.45, rico: 0.25, tip: "反应慢半拍，乱枪扫射" },
+  { name: "唐B",  react: 0.30,  aimDeg: 20,  lead: 0.2,  dodge: 0.1,  msErr: 20,  healAt: 0.32, mineUse: 0.15, prefer: 0.4,  ideal: 195, dash: 0.15, rico: 0.1,  tip: "贴心陪练，原地转圈让你打" }
+];
+const AI = { on: false, id: 1, diff: DIFFS[0],
+             think: 0, want: 0, wantT: 0, wantFire: false,
+             aimBias: 0, biasT: 0, msBias: 0, msBiasT: 0, navGoal: null,
+             evx: 0, evy: 0, pex: null, pey: null,
+             dodgeAng: 0, dodgeT: 0, dashAng: 0, dashT: 0, escapeT: 0, rico: false, wander: 0, wanderT: 0,
+             lastX: 0, lastY: 0, stuck: 0,
+             keys: { left: false, right: false, up: false, down: false, fire: false } };
+/* 虚拟按键层：人类读键盘，AI 读自己的决策结果，双方走同一套移动/开火代码 */
+function vkey(pid, act) {
+  if (AI.on && pid === AI.id) return !!AI.keys[act];
+  return keys.has(CONTROLS[pid][act]);
 }
 
 /* ------------------------ 全局状态 ------------------------ */
@@ -449,6 +523,11 @@ function hitsWall(cx, cy, h) {
    对局与地图流程
    ===================================================================== */
 function startMatch() {
+  // 根据模式更新名称与 HUD 抬头
+  COLORS[1].name = AI.on ? "CPU·" + AI.diff.name : "玩家2";
+  document.getElementById("hname0").textContent = COLORS[0].name;
+  document.getElementById("hname1").textContent = COLORS[1].name;
+  resetAI();
   // §12.1 整场重置
   state.G = {
     time: 0, mapNo: 0,
@@ -555,7 +634,17 @@ const keys = new Set();
 function clearKeys() { keys.clear(); }
 window.addEventListener("keydown", function (e) {
   const c = e.code;
-  if (BLOCK_KEYS.has(c)) e.preventDefault();
+  if (state.binding) {                           // 改键录入优先拦截
+    e.preventDefault();
+    if (c === "Escape") { state.binding = null; renderKeys(); return; }
+    const b = state.binding;
+    const other = Object.keys(CONTROLS[b.p]).find(a => CONTROLS[b.p][a] === c && a !== b.act);
+    if (other) CONTROLS[b.p][other] = CONTROLS[b.p][b.act];   // 目标键已被占用：自动互换
+    CONTROLS[b.p][b.act] = c;
+    state.binding = null; saveKeys(); renderKeys(); SFX.click();
+    return;
+  }
+  if (BLOCK_KEYS.has(c) || isBoundKey(c)) e.preventDefault();
   if (c === "Escape") {
     if (state.screen === "BATTLE") { SFX.pause(); showPause(); }
     else if (state.screen === "PAUSE") { SFX.pause(); setState("BATTLE"); }
@@ -565,6 +654,7 @@ window.addEventListener("keydown", function (e) {
   keys.add(c);
   if (e.repeat) return;
   for (let i = 0; i < 2; i++) {
+    if (AI.on && i === AI.id) continue;      // 人机模式：CPU 的行动由 AI 生成，屏蔽玩家2按键
     if (c === CONTROLS[i].fire) tryFire(i);
     else if (c === CONTROLS[i].med) useMed(i);
     else if (c === CONTROLS[i].mine) placeMine(i);
@@ -825,12 +915,12 @@ function updateTanks(dt) {
       continue;
     }
     if (t.frozen) continue;                              // 导弹操控锁定
-    const kc = CONTROLS[t.id], p = G.players[t.id], sm = speedMulOf(p);
-    if (keys.has(kc.left)) t.angle -= rad * dt;
-    if (keys.has(kc.right)) t.angle += rad * dt;
+    const p = G.players[t.id], sm = speedMulOf(p);
+    if (vkey(t.id, "left")) t.angle -= rad * dt;
+    if (vkey(t.id, "right")) t.angle += rad * dt;
     let v = 0;
-    if (keys.has(kc.up)) v = CONFIG.speedFwd * sm;
-    else if (keys.has(kc.down)) v = -CONFIG.speedBack * sm;
+    if (vkey(t.id, "up")) v = CONFIG.speedFwd * sm;
+    else if (vkey(t.id, "down")) v = -CONFIG.speedBack * sm;
     if (v !== 0) moveTank(t, Math.cos(t.angle) * v * dt, Math.sin(t.angle) * v * dt);
   }
 }
@@ -900,9 +990,8 @@ function updateMissiles(dt) {
     ms.life -= dt; ms.age += dt;
     if (ms.life <= 0) { killMissile(ms); continue; }
     // 发射者的转向键控制“机头指向”，实际飞行方向以受限速率跟随 → 惯性，方向不能突变
-    const kc = CONTROLS[ms.owner];
-    if (keys.has(kc.left)) ms.want -= CONFIG.missile.aimRate * Math.PI / 180 * dt;
-    if (keys.has(kc.right)) ms.want += CONFIG.missile.aimRate * Math.PI / 180 * dt;
+    if (vkey(ms.owner, "left")) ms.want -= CONFIG.missile.aimRate * Math.PI / 180 * dt;
+    if (vkey(ms.owner, "right")) ms.want += CONFIG.missile.aimRate * Math.PI / 180 * dt;
     let diff = ms.want - ms.ang;
     while (diff > Math.PI) diff -= 2 * Math.PI;
     while (diff < -Math.PI) diff += 2 * Math.PI;
@@ -990,7 +1079,7 @@ function updateFlames(dt) {
     const p = G.players[t.id];
     let spray = false;
     if (!t.dead && !t.frozen && p.equip === "flame" && p.ammoFlame > 0 &&
-        keys.has(CONTROLS[t.id].fire)) {
+        vkey(t.id, "fire")) {
       spray = true;
       p.ammoFlame = Math.max(0, p.ammoFlame - CONFIG.flame.fuelRate * dt);
       // 沿中轴线推进到首面墙，得到碰墙截短后的火焰长度
@@ -1042,10 +1131,247 @@ function updateFlames(dt) {
   }
 }
 
+/* =====================================================================
+   人机对战 AI：决策周期制（react=反应间隔），通过 vkey 虚拟键盘驱动
+   ===================================================================== */
+function angNorm(a) {
+  while (a > Math.PI) a -= 2 * Math.PI;
+  while (a < -Math.PI) a += 2 * Math.PI;
+  return a;
+}
+/* 视线检测：两点之间没有墙体遮挡 */
+function segClear(x1, y1, x2, y2) {
+  const d = Math.hypot(x2 - x1, y2 - y1), n = Math.max(1, Math.ceil(d / 6));
+  for (let i = 1; i < n; i++) {
+    const u = i / n;
+    if (hitsWall(x1 + (x2 - x1) * u, y1 + (y2 - y1) * u, 2)) return false;
+  }
+  return true;
+}
+function resetAI() {
+  AI.think = 0; AI.wantFire = false; AI.wanderT = 0; AI.dodgeT = 0; AI.dashT = 0;
+  AI.escapeT = 0; AI.rico = false; AI.stuck = 0;
+  AI.aimBias = 0; AI.biasT = 0; AI.msBias = 0; AI.msBiasT = 0; AI.navGoal = null; AI.wantT = 0;
+  AI.pex = null; AI.evx = 0; AI.evy = 0;
+  AI.keys.left = AI.keys.right = AI.keys.up = AI.keys.down = AI.keys.fire = false;
+}
+/* 转向键带滞回：60fps 每帧可转≈3.3°（0.058rad），死区必须大于一帧量，否则左右抖动 */
+function aiTurn(K, err) {
+  if (err < -0.10) K.left = true;
+  else if (err > 0.10) K.right = true;
+}
+/* 一弹壁反弹弹道求解：找通往敌人的首个挡墙，把敌人坐标镜像到墙另一侧；
+   “自己→反弹点”与“反弹点→敌人”两段实路径都无遮挡才成立，返回朝镜像点的开火角 */
+function aiRicoShot(me, e) {
+  const dx = e.x - me.x, dy = e.y - me.y;
+  const d = Math.hypot(dx, dy), n = Math.max(1, Math.ceil(d / 6));
+  let wall = null;
+  for (let i = 1; i < n; i++) {
+    const u = i / n;
+    if (hitsWall(me.x + dx * u, me.y + dy * u, 2)) {
+      wall = firstWallRect(me.x + dx * u, me.y + dy * u, 2);
+      break;
+    }
+  }
+  if (!wall) return null;
+  const axes = (wall[2] - wall[0]) <= (wall[3] - wall[1]) ? ["v", "h"] : ["h", "v"];
+  for (const ax of axes) {
+    const c = ax === "v" ? (wall[0] + wall[2]) / 2 : (wall[1] + wall[3]) / 2;
+    const bx = ax === "v" ? 2 * c - e.x : e.x;      // 镜像点（虚拟）
+    const by = ax === "h" ? 2 * c - e.y : e.y;
+    const denom = ax === "v" ? bx - me.x : by - me.y;
+    if (Math.abs(denom) < 1) continue;
+    const t = (ax === "v" ? c - me.x : c - me.y) / denom;
+    if (t <= 0.02 || t >= 0.98) continue;
+    const px = ax === "v" ? c : me.x + (bx - me.x) * t;   // 实际反弹点
+    const py = ax === "v" ? me.y + (by - me.y) * t : c;
+    if (ax === "v" && (py < wall[1] - 6 || py > wall[3] + 6)) continue;
+    if (ax === "h" && (px < wall[0] - 6 || px > wall[2] + 6)) continue;
+    if (segClear(me.x, me.y, px, py) && segClear(px, py, e.x, e.y)) {
+      return Math.atan2(by - me.y, bx - me.x);       // 朝镜像点开火，弹到墙面反射后命中
+    }
+  }
+  return null;
+}
+/* BFS 寻路：返回从自己所在格通往敌人所在格的下一路径格中心（同格/不可达返回 null） */
+function aiPathGoal(me, e) {
+  const G = state.G, S = CONFIG.cell, cols = G.cols, rows = G.rows, g = G.grid;
+  const clamp = (v, m) => Math.min(m - 1, Math.max(0, v));
+  const si = clamp(Math.floor(me.y / S), rows) * cols + clamp(Math.floor(me.x / S), cols);
+  const ei = clamp(Math.floor(e.y / S), rows) * cols + clamp(Math.floor(e.x / S), cols);
+  if (si === ei || g[si] !== 0 || g[ei] !== 0) return null;
+  const prev = new Int32Array(cols * rows).fill(-1);
+  const seen = new Uint8Array(cols * rows);
+  const q = [si]; seen[si] = 1;
+  let head = 0, found = false;
+  while (head < q.length) {
+    const cur = q[head++];
+    if (cur === ei) { found = true; break; }
+    const cx = cur % cols, cy = (cur / cols) | 0;
+    if (cx > 0 && !seen[cur - 1] && g[cur - 1] === 0) { seen[cur - 1] = 1; prev[cur - 1] = cur; q.push(cur - 1); }
+    if (cx < cols - 1 && !seen[cur + 1] && g[cur + 1] === 0) { seen[cur + 1] = 1; prev[cur + 1] = cur; q.push(cur + 1); }
+    if (cy > 0 && !seen[cur - cols] && g[cur - cols] === 0) { seen[cur - cols] = 1; prev[cur - cols] = cur; q.push(cur - cols); }
+    if (cy < rows - 1 && !seen[cur + cols] && g[cur + cols] === 0) { seen[cur + cols] = 1; prev[cur + cols] = cur; q.push(cur + cols); }
+  }
+  if (!found) return null;
+  let cur = ei;
+  while (prev[cur] !== -1 && prev[cur] !== si) cur = prev[cur];
+  if (prev[cur] === -1) return null;             // 已在相邻格，直线走就行
+  return { x: (cur % cols + 0.5) * S, y: (((cur / cols) | 0) + 0.5) * S };
+}
+
+function aiThink(dt) {
+  const G = state.G, me = G.tanks[AI.id], e = G.tanks[1 - AI.id];
+  const K = AI.keys;
+  K.left = K.right = K.up = K.down = K.fire = false;
+  if (!me || me.dead || !e) return;
+  const D = AI.diff, p = G.players[AI.id];
+  // 指数平滑估算敌速，用于提前量预测
+  if (AI.pex !== null && dt > 0 && !e.dead) {
+    AI.evx = AI.evx * 0.8 + ((e.x - AI.pex) / dt) * 0.2;
+    AI.evy = AI.evy * 0.8 + ((e.y - AI.pey) / dt) * 0.2;
+  }
+  AI.pex = e.x; AI.pey = e.y;
+
+  // ---- 导弹阶段：每个决策周期更新一次期望方向（随机误差不能逐帧重摇，否则机头抖动）----
+  if (me.missileOut) {
+    const ms = G.missiles.find(m => m.owner === AI.id && !m.dead);
+    AI.think -= dt;
+    if (ms && !e.dead && AI.think <= 0) {
+      AI.think = D.react;
+      const d = Math.hypot(e.x - ms.x, e.y - ms.y);
+      const lead = D.lead * d / CONFIG.missile.speed;
+      AI.msBiasT -= D.react;
+      if (AI.msBiasT <= 0) {                 // 追踪偏置持续 0.5~1s，机头不再逐帧抽动
+        AI.msBiasT = 0.5 + Math.random() * 0.5;
+        AI.msBias = (Math.random() * 2 - 1) * D.msErr * Math.PI / 180;
+      }
+      AI.wantT = angNorm(Math.atan2(e.y + AI.evy * lead - ms.y, e.x + AI.evx * lead - ms.x) + AI.msBias);
+    }
+    AI.want = angNorm(AI.want + angNorm(AI.wantT - AI.want) * Math.min(1, dt * 12));
+    if (ms) aiTurn(K, angNorm(AI.want - ms.ang));
+    return;
+  }
+
+  const los = !e.dead && segClear(me.x, me.y, e.x, e.y);
+  const dist = Math.hypot(e.x - me.x, e.y - me.y);
+
+  // ---- 周期性决策：每 react 秒重新瞄准/判定/用道具 ----
+  AI.think -= dt;
+  if (AI.think <= 0) {
+    AI.think = D.react;
+    const lead = D.lead * dist / CONFIG.bullet.speed;
+    let want = Math.atan2(e.y + AI.evy * lead - me.y, e.x + AI.evx * lead - me.x);
+    const w = p.equip;
+    AI.rico = false;
+    // 无视线 + 子弹类武器：按难度概率求解一次反弹枪道
+    if (!los && !e.dead && (w === "normal" || w === "twin") && Math.random() < D.rico) {
+      const a = aiRicoShot(me, e);
+      if (a !== null) { want = a; AI.rico = true; }
+    }
+    AI.biasT -= D.react;
+    if (AI.biasT <= 0) {                     // 貃准偏置持续 0.6~1.2s（拟人手感），不再每拍重摇把机头抽成筛子
+      AI.biasT = 0.6 + Math.random() * 0.6;
+      AI.aimBias = (Math.random() * 2 - 1) * D.aimDeg * Math.PI / 180;
+    }
+    AI.wantT = angNorm(want + AI.aimBias);
+    AI.navGoal = (!los && !e.dead) ? aiPathGoal(me, e) : null;   // 无视线：BFS 寻路拿下一路径点
+    // 低难度用大容差“概略开火”（边扫边转），高难度严丝合缝才扣扳机
+    const arcLim = w === "flame" ? 0.17 : Math.max(0.12, D.aimDeg * Math.PI / 180 * 1.2);
+    const inArc = Math.abs(angNorm(AI.want - me.angle)) < arcLim;
+    const inRng = w === "flame" ? dist < CONFIG.flame.range * 0.8 : true;
+    AI.wantFire = (los || AI.rico) && !e.dead && inArc && inRng && Math.random() < 0.3 + 0.7 * D.prefer;
+    if (p.medBag > 0 && me.hp < me.maxHp * D.healAt) useMed(AI.id);            // 低血吃药
+    if (p.mineBag > 0 && Math.random() < 0.1 * D.mineUse) placeMine(AI.id);    // 随机布雷
+    // 来袭弹威胁：沿垂直于弹道的方向闪避（概率 = 难度系数）
+    for (const th of G.bullets.concat(G.missiles)) {
+      if (th.owner === AI.id || th.dead) continue;
+      const dx = me.x - th.x, dy = me.y - th.y, dd = Math.hypot(dx, dy);
+      if (dd < 1 || dd > 150 + 80 * D.dodge) continue;   // 难度高→更早发现来袭弹
+      let vx, vy;
+      if (th.vx !== undefined) { vx = th.vx; vy = th.vy; }
+      else { vx = Math.cos(th.ang); vy = Math.sin(th.ang); }
+      const vl = Math.hypot(vx, vy) || 1;
+      if ((dx * vx + dy * vy) / (dd * vl) < -0.9 && Math.random() < D.dodge) {
+        const side = (dx * vy - dy * vx) > 0 ? 1 : -1;
+        AI.dodgeAng = Math.atan2(vy, vx) + side * Math.PI / 2;
+        AI.dodgeT = 0.5;
+      }
+    }
+    // 横向突发移动：越强越常走位，移动期间不射击
+    if (los && AI.dashT <= 0 && Math.random() < 0.3 * D.dash * D.react) {
+      AI.dashAng = Math.atan2(e.y - me.y, e.x - me.x) + (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2;
+      AI.dashT = 0.3 + Math.random() * 0.35;
+    }
+    // 卡住或丢失视线 -> 临时随机航向
+    const moved = Math.hypot(me.x - (AI.lastX || me.x), me.y - (AI.lastY || me.y));
+    AI.lastX = me.x; AI.lastY = me.y;
+    AI.stuck = moved < 0.5 ? AI.stuck + D.react : 0;
+    if (AI.stuck > 0.3) {                       // 卡墙：强制绕行脱困，禁止顶着墙原地抠火
+      AI.escapeT = 0.5 + Math.random() * 0.5;
+      AI.wander = Math.random() * Math.PI * 2;
+      AI.stuck = 0;
+    }
+    if (AI.escapeT <= 0 && !AI.navGoal && (!los || AI.wanderT <= 0)) {   // 寻路不可用才随机航向
+      AI.wander = Math.random() * Math.PI * 2;
+      AI.wanderT = 0.5 + Math.random() * 0.7;
+    }
+  }
+  AI.wanderT -= dt; AI.dodgeT -= dt; AI.dashT -= dt; AI.escapeT -= dt;
+  // 期望方向逐帧平滑（时间常数≈80ms），目标跳动不会直接传到转向键
+  AI.want = angNorm(AI.want + angNorm(AI.wantT - AI.want) * Math.min(1, dt * 12));
+
+  const dodging = AI.dodgeT > 0;
+  const escaping = !dodging && AI.escapeT > 0;
+  const dashing = !dodging && !escaping && AI.dashT > 0;
+  K.fire = AI.wantFire && !dodging && !dashing && !escaping && (los || AI.rico);
+
+  if (dodging || dashing || escaping || !los) {
+    // 导航模式：转向键用于赶路（闪避/走位/脱困/随机航向/直线切向敌人）
+    const goal = dodging ? AI.dodgeAng
+               : dashing ? AI.dashAng
+               : escaping ? AI.wander
+               : (AI.navGoal ? Math.atan2(AI.navGoal.y - me.y, AI.navGoal.x - me.x)
+                             : Math.atan2(e.y - me.y, e.x - me.x));
+    const md = angNorm(goal - me.angle);
+    aiTurn(K, md);
+    if (AI.rico && AI.wantFire && Math.abs(md) < 0.25) {
+      // 反弹枪：对准枪道后站定输出，不乱动破坏弹道
+    } else if (Math.abs(md) < 1.0) K.up = true; else K.down = true;   // 背对目标时倒车转向
+  } else {
+    // 有视线：转向键交给瞄准，移动只沿车头前进/后退拉开到理想距离
+    aiTurn(K, angNorm(AI.want - me.angle));
+    if (dist > D.ideal + 40) K.up = true; else if (dist < D.ideal - 50) K.down = true;
+  }
+}
+/* CPU 商店阶段：按优先级购买直到无可买项；难度越低越不会用道具 */
+function aiShop() {
+  const p = state.G.players[AI.id];
+  const order = ["upHp", "upFr", "upSpd", "med", "mine", "twin", "flame", "laser", "missile"];
+  let guard = 60;
+  while (guard--) {
+    let bought = false;
+    for (const k of order) {
+      const it = SHOP_ITEMS.find(x => x.key === k);
+      if (p.gold < it.price || itemState(p, k).dis) continue;
+      if (k === "med" && p.medBag >= 3) continue;
+      if (k === "mine" && p.mineBag >= 3) continue;
+      if (["twin", "flame", "laser", "missile"].indexOf(k) >= 0 &&
+          Math.random() > 0.25 + 0.75 * AI.diff.prefer) continue;   // 低难度偶尔忘买武器
+      buyItem(AI.id, k);
+      bought = true;
+      break;
+    }
+    if (!bought) break;
+  }
+}
+
 function updateGame(dt) {
   const G = state.G;
   G.time += dt;                                          // 游戏时钟：只在 BATTLE 推进
   updateTanks(dt);
+  // 长按持续开火（人类与 AI 同一入口，tryFire 内部有冷却门槛）
+  for (let i = 0; i < 2; i++) if (vkey(i, "fire")) tryFire(i);
   updateBullets(dt);
   updateLasers(dt);
   updateMissiles(dt);
@@ -1277,12 +1603,13 @@ function itemState(p, key) {
 function renderShop() {
   const G = state.G;
   document.getElementById("shopHead").innerHTML =
-    "第 " + G.mapNo + " 张地图结束 · 当前比分 <span class='c0'>玩家1</span> <b>" + G.score[0] +
-    " : " + G.score[1] + "</b> <span class='c1'>玩家2</span> · 累计击杀 " + (G.kills[0] + G.kills[1]) +
+    "第 " + G.mapNo + " 张地图结束 · 当前比分 <span class='c0'>" + COLORS[0].name + "</span> <b>" + G.score[0] +
+    " : " + G.score[1] + "</b> <span class='c1'>" + COLORS[1].name + "</span> · 累计击杀 " + (G.kills[0] + G.kills[1]) +
     " 次 · 当前地图 " + G.cols + "×" + G.rows;
   let html = "";
   for (let i = 0; i < 2; i++) {
     const p = G.players[i];
+    const aiCol = AI.on && i === AI.id;                    // CPU 栏不可手动购买
     const ammoNow = ammoNowOf(p);
     html += "<div class='shopCol'><h3 class='c" + i + "'>" + COLORS[i].name +
       "（金币 <b>" + p.gold + "</b>）</h3>" +
@@ -1294,7 +1621,7 @@ function renderShop() {
       html += "<div class='shopItem'><div class='nm'>" + it.name + "<small>" + it.desc + "</small></div>" +
         "<div class='st'>" + s.st + "</div>" +
         "<button class='btn sm buyBtn' data-p='" + i + "' data-k='" + it.key + "'" +
-        (s.dis ? " disabled" : "") + ">" + s.bt + "</button></div>";
+        (s.dis || aiCol ? " disabled" : "") + ">" + (aiCol ? "CPU 已购" : s.bt) + "</button></div>";
     }
     html += "</div>";
   }
@@ -1324,10 +1651,11 @@ function buyItem(pi, key) {
 /* =====================================================================
    状态机与界面切换（覆盖层均为 HTML）
    ===================================================================== */
-const SCREEN_IDS = { MENU: "scr-menu", SETTINGS: "scr-settings", HOWTO: "scr-howto",
+const SCREEN_IDS = { MENU: "scr-menu", SETTINGS: "scr-settings", HOWTO: "scr-howto", DIFF: "scr-diff",
                      SHOP: "scr-shop", PAUSE: "scr-pause", MATCH_OVER: "scr-matchover" };
 function setState(s) {
   state.screen = s;
+  state.binding = null;                          // 切换界面时退出改键录入
   for (const k in SCREEN_IDS) {
     document.getElementById(SCREEN_IDS[k]).classList.toggle("show", k === s);
   }
@@ -1337,7 +1665,12 @@ function setState(s) {
   }
   for (const b of document.querySelectorAll("button")) b.blur();  // 防止空格/回车误触按钮
 }
-function showShop() { renderShop(); setState("SHOP"); SFX.mapChange(); }
+function showShop() {
+  setState("SHOP");
+  if (AI.on) aiShop();          // CPU 先自动采购，再展示商店
+  renderShop();
+  SFX.mapChange();
+}
 function showPause() {
   const G = state.G;
   document.getElementById("pauseInfo").innerHTML =
@@ -1350,9 +1683,9 @@ function showMatchOver() {
   document.getElementById("moBox").innerHTML =
     "<div class='ovLine' style='font-size:30px'><span class='c0'>" + G.score[0] +
     "</span> : <span class='c1'>" + G.score[1] + "</span></div>" +
-    "<div class='ovLine'><span class='c0'>玩家1</span> 击杀 " + G.kills[0] +
+    "<div class='ovLine'><span class='c0'>" + COLORS[0].name + "</span> 击杀 " + G.kills[0] +
     " 次 · 剩余金币 " + G.players[0].gold + "</div>" +
-    "<div class='ovLine'><span class='c1'>玩家2</span> 击杀 " + G.kills[1] +
+    "<div class='ovLine'><span class='c1'>" + COLORS[1].name + "</span> 击杀 " + G.kills[1] +
     " 次 · 剩余金币 " + G.players[1].gold + "</div>" +
     "<div class='ovLine' style='color:#777'>共进行 " + G.mapNo + " 张地图</div>";
   setState("MATCH_OVER");
@@ -1364,7 +1697,24 @@ function bind(id, fn) {
     initAudio(); SFX.click(); fn();
   });
 }
-bind("btnStart", function () { startMatch(); });
+bind("btnStart", function () { AI.on = false; startMatch(); });
+bind("btnVsAI", function () { setState("DIFF"); });
+bind("btnDiffBack", function () { setState("MENU"); });
+/* 难度按钮（由强到弱）：点选即开局 */
+(function buildDiffButtons() {
+  const dp = document.getElementById("diffPanel");
+  DIFFS.forEach(function (d, k) {
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.innerHTML = d.name + "<small style='display:block;font-size:11px;color:#777;font-weight:400'>第 " +
+      (k + 1) + " 档 · " + d.tip + "</small>";
+    b.addEventListener("click", function () {
+      initAudio(); SFX.click();
+      AI.on = true; AI.diff = d; startMatch();
+    });
+    dp.appendChild(b);
+  });
+})();
 bind("btnToSettings", function () { renderSettings(); setState("SETTINGS"); });
 bind("btnToHowto", function () { setState("HOWTO"); });
 bind("btnSound", function () {
@@ -1399,7 +1749,34 @@ function renderSettings() {
   document.getElementById("setTip").textContent =
     "当前：初始金币 " + state.settings.gold + " · 地图规模 " +
     ({ small: "偏小", random: "随机", large: "偏大" })[state.settings.mapPref];
+  renderKeys();
 }
+/* 按键设置面板：点击按钮后进入录入态，下一次按键写入 */
+function renderKeys() {
+  let html = "";
+  for (let i = 0; i < 2; i++) {
+    html += "<div class='keycol'><h4 class='c" + i + "'>" + (i === 0 ? "玩家1（红）" : "玩家2（蓝）") + "</h4>";
+    for (const ka of KEY_ACTS) {
+      const lis = state.binding && state.binding.p === i && state.binding.act === ka[0];
+      html += "<div class='krow'><span>" + ka[1] + "</span>" +
+        "<button class='btn sm kbtn" + (lis ? " lis" : "") + "' data-p='" + i + "' data-a='" + ka[0] + "'>" +
+        (lis ? "请按新按键…" : keyName(CONTROLS[i][ka[0]])) + "</button></div>";
+    }
+    html += "</div>";
+  }
+  document.getElementById("keyCfg").innerHTML = html;
+}
+document.getElementById("keyCfg").addEventListener("click", function (e) {
+  const b = e.target.closest(".kbtn");
+  if (!b) return;
+  initAudio(); SFX.click();
+  state.binding = { p: +b.dataset.p, act: b.dataset.a };
+  renderKeys();
+});
+bind("btnKeyReset", function () {
+  for (let i = 0; i < 2; i++) CONTROLS[i] = { ...KEY_DEFAULTS[i] };
+  state.binding = null; saveKeys(); renderKeys();
+});
 
 /* =====================================================================
    主循环：只有 BATTLE 推进逻辑 —— SHOP/PAUSE 下所有计时器冻结
@@ -1412,6 +1789,7 @@ function loop(ts) {
   if (dt > 0.05) dt = 0.05;
   if (dt < 0) dt = 0;
   if (state.screen === "BATTLE" && state.G) {
+    if (AI.on) aiThink(dt);
     updateGame(dt);
     updateHUD();
   }
